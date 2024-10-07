@@ -27,15 +27,44 @@ const upload = multer({
 });
 
 
-// router
-//   .route("/profile")
-//   .get(authUser, controller.userProfile)
-//   .patch(authUser, controller.updateProfile);
-
 router
   .route("/")
   .get(authUser, controller.userList)
   .patch(authUser, controller.updatePassword);
+
+  router
+  .route("/flws")
+  .get(authUser, controller.getAllFLWs);
+
+router
+  .route("/ucmos")
+  .get(authUser, controller.getAllUCMOs);
+
+router
+  .route("/aics")
+  .get(authUser, controller.getAllAICs);
+
+  router
+  .route("/role")
+  .get(authUser, controller.getUsersByRole); 
+
+  router
+  .route("/ucmos/:ucmoId/aics")
+  .get(authUser, controller.getAICsByUCMO); // Get all AICs under a specific UCMO
+
+router
+  .route("/aics/:aicId/flws")
+  .get(authUser, controller.getFLWsByAIC); // Get all FLWs under a specific AIC
+
+
+  router
+  .route("/ucmos/:ucmoId/with-aics-flws")
+  .get(authUser, controller.getUCMOWithAICsAndFLWs);
+
+
+
+  
+
 
 router.route('/:id')
 // .get(authUser, controller.userDetail)

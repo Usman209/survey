@@ -115,3 +115,111 @@ exports.userDetail = async (req, res) => {
     errReturned(res, error);
   }
 };
+
+
+exports.getAllFLWs = async (req, res) => {
+  try {
+    const flws = await USER.find({ role: 'FLW' }, "name email role status"); // Adjust the projection as needed
+    return sendResponse(res, EResponseCode.SUCCESS, "FLW list", flws);
+  } catch (err) {
+    errReturned(res, err);
+  }
+};
+
+exports.getAllUCMOs = async (req, res) => {
+  try {
+    const ucmos = await USER.find({ role: 'UCMO' }, "name email role status"); // Adjust the projection as needed
+    return sendResponse(res, EResponseCode.SUCCESS, "UCMO list", ucmos);
+  } catch (err) {
+    errReturned(res, err);
+  }
+};
+
+exports.getAllAICs = async (req, res) => {
+  try {
+    const aics = await USER.find({ role: 'AIC' }, "name email role status"); // Adjust the projection as needed
+    return sendResponse(res, EResponseCode.SUCCESS, "AIC list", aics);
+  } catch (err) {
+    errReturned(res, err);
+  }
+};
+
+exports.getUsersByRole = async (req, res) => {
+  try {
+    const { role } = req.query; // Get the role from query parameters
+
+    // Validate role input
+    const validRoles = ['FLW', 'UCMO', 'AIC'];
+    if (!validRoles.includes(role)) {
+      return sendResponse(res, EResponseCode.BAD_REQUEST, "Invalid role provided");
+    }
+
+    const users = await USER.find({ role }, "name email role status"); // Adjust the projection as needed
+    return sendResponse(res, EResponseCode.SUCCESS, `${role} list`, users);
+  } catch (err) {
+    errReturned(res, err);
+  }
+};
+
+
+
+// Get all AICs under a specific UCMO
+exports.getAICsByUCMO = async (req, res) => {
+  try {
+    const { ucmoId } = req.params;
+    const aics = await USER.find({ role: 'AIC', ucmoId }, "name email role status");
+    return sendResponse(res, EResponseCode.SUCCESS, "AICs under UCMO", aics);
+  } catch (err) {
+    errReturned(res, err);
+  }
+};
+
+// Get all FLWs under a specific AIC
+exports.getFLWsByAIC = async (req, res) => {
+  try {
+    const { aicId } = req.params;
+    const flws = await USER.find({ role: 'FLW', aicId }, "name email role status");
+    return sendResponse(res, EResponseCode.SUCCESS, "FLWs under AIC", flws);
+  } catch (err) {
+    errReturned(res, err);
+  }
+};
+
+
+// Get UCMO with all AICs and their FLWs
+exports.getUCMOWithAICsAndFLWs = async (req, res) => {
+  try {
+    const { ucmoId } = req.params;
+
+    // Fetch the UCMO
+    const ucmo = await USER.findById(ucmoId);
+    if (!ucmo) {
+      return sendResponse(res, EResponseCode.NOT_FOUND, "UCMO not found");
+    }
+
+    // Fetch all AICs under the UCMO
+    const aics = await USER.find({ role: 'AIC', ucmoId: ucmoId });
+
+    // Fetch FLWs for each AIC
+    const aicsWithFLWs = await Promise.all(
+      aics.map(async (aic) => {
+        const flws = await USER.find({ role: 'FLW', aicId: aic._id });
+        return { ...aic.toObject(), flws }; // Include FLWs in the AIC object
+      })
+    );
+
+    // Response structure
+    const response = {
+      ucmo,
+      aics: aicsWithFLWs,
+    };
+
+    return sendResponse(res, EResponseCode.SUCCESS, "UCMO with AICs and FLWs", response);
+  } catch (err) {
+    errReturned(res, err);
+  }
+};
+
+
+
+
