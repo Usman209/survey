@@ -61,7 +61,9 @@ router
   .route("/ucmos/:ucmoId/with-aics-flws")
   .get(authUser, controller.getUCMOWithAICsAndFLWs);
 
-
+  router
+  .route("/search")
+  .get(authUser, controller.searchUsers);
 
   
 

@@ -222,4 +222,36 @@ exports.getUCMOWithAICsAndFLWs = async (req, res) => {
 
 
 
+// Search users based on query parameters
+exports.searchUsers = async (req, res) => {
+  try {
+    const { role, name, email, status } = req.query;
+
+    // Build the query object
+    const query = {};
+
+    // Add conditions based on provided query parameters
+    if (role) {
+      query.role = role;
+    }
+    if (name) {
+      query.name = { $regex: name, $options: 'i' }; // Case-insensitive search
+    }
+    if (email) {
+      query.email = { $regex: email, $options: 'i' };
+    }
+    if (status) {
+      query.status = status;
+    }
+
+    // Fetch users matching the query
+    const users = await USER.find(query).select("name email role status");
+
+    // Return the results
+    return sendResponse(res, EResponseCode.SUCCESS, "User search results", users);
+  } catch (err) {
+    errReturned(res, err);
+  }
+};
+
 
