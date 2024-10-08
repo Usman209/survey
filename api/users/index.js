@@ -1,30 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const { authUser } = require("../../lib/utils/verifyToken");
-const path = require('path');
-const multer = require('multer');
 
 
 const controller = require("./controller");
-
-
-
-
-const storage = multer.diskStorage({
-  destination: './uploads/user/',
-  filename: function (req, file, cb) {
-    const { body } = req;
-    const userName = body.firstName?.replace(/\s+/g, '-').toLowerCase(); // Modify firstName to lowercase and replace spaces with hyphens
-    const extension = path.extname(file.originalname).toLowerCase();
-    const uniqueFileName = `${userName}-${Date.now()}${extension}`;
-    cb(null, uniqueFileName);
-  }
-});
-
-const upload = multer({
-  storage: storage
-  // limits: { fileSize: 1 * 1024 * 1024 },
-});
 
 
 router
@@ -65,12 +44,18 @@ router
   .route("/search")
   .get(authUser, controller.searchUsers);
 
-  
 
+
+router.post('/add-admin', controller.addAdmin);
+router.post('/add-umco', controller.addUmco);
+router.post('/add-aic', controller.addAic);
+router.post('/add-flw', controller.addFlw);
+
+  
 
 router.route('/:id')
 // .get(authUser, controller.userDetail)
 .get(controller.userProfile)
-.put(upload.single('profileImg'),controller.updateProfile);
+.put(controller.updateProfile);
 
 module.exports = router;

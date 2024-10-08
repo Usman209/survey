@@ -86,12 +86,6 @@ exports.register = async (req, res) => {
     const data = await user.save();
     console.log(data);
 
-    const token = jwt.sign(
-      { id: data._id },
-      process.env.TOKEN_SECRET,
-      { expiresIn: 150 * 60 }
-    );
-
     return sendResponse(res, EResponseCode.SUCCESS, "Please check your email for verification.!", user);
   } catch (error) {
     return errReturned(res, error);

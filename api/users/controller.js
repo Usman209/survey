@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const USER = require("../../lib/schema/users.schema");
+
 require("dotenv").config();
 
 const { sendResponse, errReturned } = require("../../lib/utils/dto");
@@ -13,6 +14,7 @@ const {
 const {
   updateProfileSchemaValidator,
   updatePasswordSchemaValidator,
+  userRegisterSchemaValidator,
 } = require("../../lib/utils/sanitization");
 
 exports.userProfile = async (req, res) => {
@@ -162,8 +164,6 @@ exports.getUsersByRole = async (req, res) => {
 };
 
 
-
-// Get all AICs under a specific UCMO
 exports.getAICsByUCMO = async (req, res) => {
   try {
     const { ucmoId } = req.params;
@@ -174,7 +174,6 @@ exports.getAICsByUCMO = async (req, res) => {
   }
 };
 
-// Get all FLWs under a specific AIC
 exports.getFLWsByAIC = async (req, res) => {
   try {
     const { aicId } = req.params;
@@ -186,7 +185,6 @@ exports.getFLWsByAIC = async (req, res) => {
 };
 
 
-// Get UCMO with all AICs and their FLWs
 exports.getUCMOWithAICsAndFLWs = async (req, res) => {
   try {
     const { ucmoId } = req.params;
@@ -222,7 +220,6 @@ exports.getUCMOWithAICsAndFLWs = async (req, res) => {
 
 
 
-// Search users based on query parameters
 exports.searchUsers = async (req, res) => {
   try {
     const { role, name, email, status } = req.query;
@@ -254,4 +251,49 @@ exports.searchUsers = async (req, res) => {
   }
 };
 
+
+
+exports.addAdmin = async (req, res) => {
+  return await addUserWithRole(req, res, "ADMIN");
+};
+
+exports.addUmco = async (req, res) => {
+  return await addUserWithRole(req, res, "UMCO");
+};
+
+exports.addAic = async (req, res) => {
+  return await addUserWithRole(req, res, "AIC");
+};
+
+exports.addFlw = async (req, res) => {
+  return await addUserWithRole(req, res, "FLW");
+};
+
+const addUserWithRole = async (req, res, role) => {
+  try {
+    const { error, value } = userRegisterSchemaValidator.validate(req.body);
+    if (error) {
+      return errReturned(res, error.message);
+    }
+
+    const { email, cnic, phone } = value;
+    const emailExist = await User.findOne({ email });
+    if (emailExist) return errReturned(res, "Email Already Exists");
+
+    // Generate password from CNIC and phone
+    const generatedPassword = `${cnic.slice(0, 5)}${phone.slice(-3)}`;
+    value.password = await bcrypt.hash(generatedPassword, await bcrypt.genSalt(10));
+
+    // Add the hardcoded role
+    value.roles = [role];
+
+    const user = new User(value);
+    const data = await user.save();
+    console.log(data);
+
+    return sendResponse(res, EResponseCode.SUCCESS, "User added successfully. Please check your email for verification.", user);
+  } catch (error) {
+    return errReturned(res, error);
+  }
+};
 
