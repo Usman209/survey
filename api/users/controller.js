@@ -258,7 +258,7 @@ exports.addAdmin = async (req, res) => {
 };
 
 exports.addUmco = async (req, res) => {
-  return await addUserWithRole(req, res, "UMCO");
+  return await addUserWithRole(req, res, "UCMO"); 
 };
 
 exports.addAic = async (req, res) => {
@@ -277,23 +277,22 @@ const addUserWithRole = async (req, res, role) => {
     }
 
     const { email, cnic, phone } = value;
-    const emailExist = await User.findOne({ email });
+    const emailExist = await USER.findOne({ email });
     if (emailExist) return errReturned(res, "Email Already Exists");
 
     // Generate password from CNIC and phone
     const generatedPassword = `${cnic.slice(0, 5)}${phone.slice(-3)}`;
     value.password = await bcrypt.hash(generatedPassword, await bcrypt.genSalt(10));
 
-    // Add the hardcoded role
-    value.roles = [role];
+    // Hardcoded role
+    value.role = role;
 
-    const user = new User(value);
+    const user = new USER(value);
     const data = await user.save();
-    console.log(data);
 
     return sendResponse(res, EResponseCode.SUCCESS, "User added successfully. Please check your email for verification.", user);
   } catch (error) {
-    return errReturned(res, error);
+    return errReturned(res, error.message || "An error occurred");
   }
 };
 
