@@ -1,48 +1,49 @@
 const express = require("express");
 const router = express.Router();
-const { authUser } = require("../../lib/utils/verifyToken");
+const { authenticateAndAuthorize } = require("../../lib/utils/verifyToken");
 
 
 const controller = require("./controller");
+const { EUserRole } = require("../../lib/utils/enum");
 
 
 router
   .route("/")
-  .get(authUser, controller.userList)
-  .patch(authUser, controller.updatePassword);
+  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.userList)
+  .patch(authenticateAndAuthorize([EUserRole.ADMIN]), controller.updatePassword);
 
   router
   .route("/flws")
-  .get(authUser, controller.getAllFLWs);
+  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.getAllFLWs);
 
 router
   .route("/ucmos")
-  .get(authUser, controller.getAllUCMOs);
+  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.getAllUCMOs);
 
 router
   .route("/aics")
-  .get(authUser, controller.getAllAICs);
+  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.getAllAICs);
 
   router
   .route("/role")
-  .get(authUser, controller.getUsersByRole); 
+  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.getUsersByRole); 
 
   router
   .route("/ucmos/:ucmoId/aics")
-  .get(authUser, controller.getAICsByUCMO); // Get all AICs under a specific UCMO
+  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.getAICsByUCMO); // Get all AICs under a specific UCMO
 
 router
   .route("/aics/:aicId/flws")
-  .get(authUser, controller.getFLWsByAIC); // Get all FLWs under a specific AIC
+  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.getFLWsByAIC); // Get all FLWs under a specific AIC
 
 
   router
   .route("/ucmos/:ucmoId/with-aics-flws")
-  .get(authUser, controller.getUCMOWithAICsAndFLWs);
+  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.getUCMOWithAICsAndFLWs);
 
   router
   .route("/search")
-  .get(authUser, controller.searchUsers);
+  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.searchUsers);
 
 
 
@@ -54,7 +55,7 @@ router.post('/add-flw', controller.addFlw);
   
 
 router.route('/:id')
-// .get(authUser, controller.userDetail)
+// .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.userDetail)
 .get(controller.userProfile)
 .put(controller.updateProfile);
 

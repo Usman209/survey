@@ -71,7 +71,7 @@ exports.createTeam = async (req, res) => {
 };
 
 exports.getAllTeams = async (req, res) => {
-  try {
+  try {    
     const teams = await Team.find().populate('flws createdBy');
     return sendResponse(res, 200, "Teams fetched successfully.", teams);
   } catch (error) {
