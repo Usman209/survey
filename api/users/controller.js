@@ -153,7 +153,7 @@ exports.getUsersByRole = async (req, res) => {
     // Validate role input
     const validRoles = ['FLW', 'UCMO', 'AIC'];
     if (!validRoles.includes(role)) {
-      return sendResponse(res, EResponseCode.BAD_REQUEST, "Invalid role provided");
+      return sendResponse(res, EResponseCode.BADREQUEST, "Invalid role provided");
     }
 
     const users = await USER.find({ role }, "name email role status"); // Adjust the projection as needed
@@ -167,7 +167,7 @@ exports.getUsersByRole = async (req, res) => {
 exports.getAICsByUCMO = async (req, res) => {
   try {
     const { ucmoId } = req.params;
-    const aics = await USER.find({ role: 'AIC', ucmoId }, "name email role status");
+    const aics = await USER.find({ role: 'AIC', ucmo: ucmoId }, "name email role status");
     return sendResponse(res, EResponseCode.SUCCESS, "AICs under UCMO", aics);
   } catch (err) {
     errReturned(res, err);
@@ -177,7 +177,7 @@ exports.getAICsByUCMO = async (req, res) => {
 exports.getFLWsByAIC = async (req, res) => {
   try {
     const { aicId } = req.params;
-    const flws = await USER.find({ role: 'FLW', aicId }, "name email role status");
+    const flws = await USER.find({ role: 'FLW', aic: aicId }, "name email role status");
     return sendResponse(res, EResponseCode.SUCCESS, "FLWs under AIC", flws);
   } catch (err) {
     errReturned(res, err);
@@ -196,12 +196,12 @@ exports.getUCMOWithAICsAndFLWs = async (req, res) => {
     }
 
     // Fetch all AICs under the UCMO
-    const aics = await USER.find({ role: 'AIC', ucmoId: ucmoId });
+    const aics = await USER.find({ role: 'AIC', ucmo: ucmoId });
 
     // Fetch FLWs for each AIC
     const aicsWithFLWs = await Promise.all(
       aics.map(async (aic) => {
-        const flws = await USER.find({ role: 'FLW', aicId: aic._id });
+        const flws = await USER.find({ role: 'FLW', aic: aic._id });
         return { ...aic.toObject(), flws }; // Include FLWs in the AIC object
       })
     );
@@ -232,7 +232,9 @@ exports.searchUsers = async (req, res) => {
       query.role = role;
     }
     if (name) {
-      query.name = { $regex: name, $options: 'i' }; // Case-insensitive search
+      query.$or = [];
+      query.$or.push({firstName:{$regex: name, $options: 'i'}});
+      query.$or.push({lastName:{$regex: name, $options: 'i'}});
     }
     if (email) {
       query.email = { $regex: email, $options: 'i' };
