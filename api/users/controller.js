@@ -262,11 +262,29 @@ exports.addUmco = async (req, res) => {
 };
 
 exports.addAic = async (req, res) => {
-  return await addUserWithRole(req, res, "AIC");
+  try {
+    if (!req.body.ucmo) {
+      return errReturned(res, "ucmo is required.");
+    }
+
+    return await addUserWithRole(req, res, "AIC");
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
 };
 
+
 exports.addFlw = async (req, res) => {
-  return await addUserWithRole(req, res, "FLW");
+
+  try {
+    if (!req.body.aic) {
+      return errReturned(res, "aic is required.");
+    }
+
+    return await addUserWithRole(req, res, "FLW");
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
 };
 
 const addUserWithRole = async (req, res, role) => {
@@ -295,4 +313,23 @@ const addUserWithRole = async (req, res, role) => {
     return errReturned(res, error.message || "An error occurred");
   }
 };
+
+
+exports.searchFlw = async (req, res) => {
+  try {
+    const { firstName, cnic, phone, aic } = req.query;
+    const query = { role:'FLW'}; 
+    if (firstName) query.firstName = { $regex: firstName, $options: 'i' };
+    if (cnic) query.cnic = cnic; // Exact match for CNIC
+    if (phone) query.phone = phone; // Exact match for phone
+    if (aic) query.aic = aic; // Exact match for AIC
+
+    const flws = await USER.find(query);
+    return sendResponse(res, 200, "FLWs retrieved successfully.", flws);
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+
+
 

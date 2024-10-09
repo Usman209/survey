@@ -52,6 +52,11 @@ router.post('/add-umco', controller.addUmco);
 router.post('/add-aic', controller.addAic);
 router.post('/add-flw', controller.addFlw);
 
+router.get('/flw-search', controller.searchFlw);
+
+
+
+
   
 
 router.route('/:id')

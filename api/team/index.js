@@ -4,13 +4,20 @@ const teamController = require('./controller');
 const { authenticateAndAuthorize } = require('../../lib/utils/verifyToken');
 const { EUserRole } = require('../../lib/utils/enum');
 
+
+
+
 router.post('/', teamController.createTeam);
 router.get('/', authenticateAndAuthorize([EUserRole.ADMIN,EUserRole.UCMO]),teamController.getAllTeams);
 router.get('/:id', teamController.getTeamById);
 router.put('/:id', teamController.updateTeam);
 router.delete('/:id', teamController.deleteTeam);
-router.post('/teams/add-flw', teamController.addFLWToTeam);
-router.post('/teams/remove-flw', teamController.removeFLWFromTeam);
+router.post('/add-flw', teamController.addFLWToTeam);
+router.post('/remove-flw', teamController.removeFLWFromTeam);
+router.get('/team/search', teamController.searchTeams); 
+
 
 
 module.exports = router;
+
+

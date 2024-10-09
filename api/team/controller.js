@@ -1,4 +1,6 @@
 const Team = require('../../lib/schema/team.schema');
+const USER = require('../../lib/schema/users.schema');
+
 const { errReturned, sendResponse } = require('../../lib/utils/dto');
 
 // Add FLW to a team
@@ -59,10 +61,16 @@ exports.removeFLWFromTeam = async (req, res) => {
   }
 };
 
-// Create a new team
 exports.createTeam = async (req, res) => {
   try {
-    const team = new Team(req.body);
+    const teamNumber = await generateUniqueTeamNumber();
+
+    // Create a new team with the generated team number
+    const team = new Team({
+      ...req.body,
+      teamNumber, 
+    });
+
     const savedTeam = await team.save();
     return sendResponse(res, 201, "Team created successfully.", savedTeam);
   } catch (error) {
@@ -108,3 +116,47 @@ exports.deleteTeam = async (req, res) => {
     return errReturned(res, error.message);
   }
 };
+
+
+const generateUniqueTeamNumber = async () => {
+  let teamNumber;
+  let exists = true;
+
+  while (exists) {
+    // Generate a random 4-digit number
+    teamNumber = Math.floor(1000 + Math.random() * 9000);
+
+    // Check if it exists in the database
+    exists = await USER.findOne({ teamNumber }); // Change USER to your model name
+  }
+
+  return teamNumber;
+};
+
+
+
+
+exports.searchTeams = async (req, res) => {
+
+  try {
+    const { teamNumber, teamName, townOrTehsil, uc, district } = req.query;
+
+
+    console.log(req.query);
+    
+
+    // Build the query object
+    const query = {};
+    if (teamNumber) query.teamNumber = teamNumber;
+    if (teamName) query.teamName = { $regex: teamName, $options: 'i' }; // Case-insensitive search
+    if (townOrTehsil) query.townOrTehsil = { $regex: townOrTehsil, $options: 'i' };
+    if (uc) query.uc = { $regex: uc, $options: 'i' };
+    if (district) query.district = { $regex: district, $options: 'i' };
+
+    const teams = await Team.find(query);
+    return sendResponse(res, 200, "Teams retrieved successfully.", teams);
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+
