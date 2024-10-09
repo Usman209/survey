@@ -16,6 +16,9 @@ router.post('/add-flw', teamController.addFLWToTeam);
 router.post('/remove-flw', teamController.removeFLWFromTeam);
 router.get('/team/search', teamController.searchTeams); 
 
+router.get('/team/all', teamController.getTeamsByUcmo); 
+
+
 
 
 module.exports = router;

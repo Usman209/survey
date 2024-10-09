@@ -56,6 +56,12 @@ router.get('/flw-search', controller.searchFlw);
 
 
 
+router.get('/ucmo/:id', controller.getUsersByUcmo);
+router.get('/aic/:id', controller.getFLWsByAIC);
+
+
+
+
 
   
 

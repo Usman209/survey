@@ -68,7 +68,7 @@ exports.createTeam = async (req, res) => {
     // Create a new team with the generated team number
     const team = new Team({
       ...req.body,
-      teamNumber, 
+      teamNumber,
     });
 
     const savedTeam = await team.save();
@@ -79,7 +79,7 @@ exports.createTeam = async (req, res) => {
 };
 
 exports.getAllTeams = async (req, res) => {
-  try {    
+  try {
     const teams = await Team.find().populate('flws createdBy');
     return sendResponse(res, 200, "Teams fetched successfully.", teams);
   } catch (error) {
@@ -143,7 +143,7 @@ exports.searchTeams = async (req, res) => {
 
 
     console.log(req.query);
-    
+
 
     // Build the query object
     const query = {};
@@ -155,6 +155,50 @@ exports.searchTeams = async (req, res) => {
 
     const teams = await Team.find(query);
     return sendResponse(res, 200, "Teams retrieved successfully.", teams);
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+
+
+
+exports.getTeamsByUcmo = async (req, res) => {
+  try {
+    // const { id, role } = req.user;
+
+    const { id, role } = req.query;
+
+    // Initialize an array to hold results
+    let result = [];
+
+    if (role === "UCMO") {
+      // Step 1: Find all AICs under the specified UCMO
+      const aics = await USER.find({ ucmo: id, role: "AIC" });
+
+      // Step 2: Fetch Teams for each AIC
+      for (const aic of aics) {
+        const teams = await Team.find({ aic: aic._id }); // Fetch teams associated with the AIC
+        result.push({ aic, teams });
+      }
+    } else if (role === "AIC") {
+      // Step 1: If the role is AIC, find teams associated with the AIC's ID
+      const teams = await Team.find({ aic: id });
+      result.push({ aic: { _id: id }, teams }); // Add AIC info
+    } else if (role === "FLW") {
+      // Step 1: If the role is FLW, find the team associated with the FLW
+      const flw = await USER.findById(id);
+      const teams = await Team.find({ flws: flw._id }); // Assuming flws array in Team references FLW IDs
+      result.push({ flw, teams });
+    }
+    else if (role === "ADMIN") {
+      result = await Team.find({});
+    }
+
+    else {
+      return sendResponse(res, 403, "Unauthorized role.");
+    }
+
+    return sendResponse(res, 200, "Teams retrieved successfully.", result);
   } catch (error) {
     return errReturned(res, error.message);
   }
