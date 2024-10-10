@@ -1,4 +1,6 @@
 const Team = require('../../lib/schema/team.schema');
+const USER = require('../../lib/schema/users.schema');
+
 const { errReturned, sendResponse } = require('../../lib/utils/dto');
 
 // Add FLW to a team
@@ -59,10 +61,16 @@ exports.removeFLWFromTeam = async (req, res) => {
   }
 };
 
-// Create a new team
 exports.createTeam = async (req, res) => {
   try {
-    const team = new Team(req.body);
+    const teamNumber = await generateUniqueTeamNumber();
+
+    // Create a new team with the generated team number
+    const team = new Team({
+      ...req.body,
+      teamNumber,
+    });
+
     const savedTeam = await team.save();
     return sendResponse(res, 201, "Team created successfully.", savedTeam);
   } catch (error) {
@@ -71,7 +79,7 @@ exports.createTeam = async (req, res) => {
 };
 
 exports.getAllTeams = async (req, res) => {
-  try {    
+  try {
     const teams = await Team.find().populate('flws createdBy');
     return sendResponse(res, 200, "Teams fetched successfully.", teams);
   } catch (error) {
@@ -108,3 +116,91 @@ exports.deleteTeam = async (req, res) => {
     return errReturned(res, error.message);
   }
 };
+
+
+const generateUniqueTeamNumber = async () => {
+  let teamNumber;
+  let exists = true;
+
+  while (exists) {
+    // Generate a random 4-digit number
+    teamNumber = Math.floor(1000 + Math.random() * 9000);
+
+    // Check if it exists in the database
+    exists = await USER.findOne({ teamNumber }); // Change USER to your model name
+  }
+
+  return teamNumber;
+};
+
+
+
+
+exports.searchTeams = async (req, res) => {
+
+  try {
+    const { teamNumber, teamName, townOrTehsil, uc, district } = req.query;
+
+
+    console.log(req.query);
+
+
+    // Build the query object
+    const query = {};
+    if (teamNumber) query.teamNumber = teamNumber;
+    if (teamName) query.teamName = { $regex: teamName, $options: 'i' }; // Case-insensitive search
+    if (townOrTehsil) query.townOrTehsil = { $regex: townOrTehsil, $options: 'i' };
+    if (uc) query.uc = { $regex: uc, $options: 'i' };
+    if (district) query.district = { $regex: district, $options: 'i' };
+
+    const teams = await Team.find(query);
+    return sendResponse(res, 200, "Teams retrieved successfully.", teams);
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+
+
+
+exports.getTeamsByUcmo = async (req, res) => {
+  try {
+    // const { id, role } = req.user;
+
+    const { id, role } = req.query;
+
+    // Initialize an array to hold results
+    let result = [];
+
+    if (role === "UCMO") {
+      // Step 1: Find all AICs under the specified UCMO
+      const aics = await USER.find({ ucmo: id, role: "AIC" });
+
+      // Step 2: Fetch Teams for each AIC
+      for (const aic of aics) {
+        const teams = await Team.find({ aic: aic._id }); // Fetch teams associated with the AIC
+        result.push({ aic, teams });
+      }
+    } else if (role === "AIC") {
+      // Step 1: If the role is AIC, find teams associated with the AIC's ID
+      const teams = await Team.find({ aic: id });
+      result.push({ aic: { _id: id }, teams }); // Add AIC info
+    } else if (role === "FLW") {
+      // Step 1: If the role is FLW, find the team associated with the FLW
+      const flw = await USER.findById(id);
+      const teams = await Team.find({ flws: flw._id }); // Assuming flws array in Team references FLW IDs
+      result.push({ flw, teams });
+    }
+    else if (role === "ADMIN") {
+      result = await Team.find({});
+    }
+
+    else {
+      return sendResponse(res, 403, "Unauthorized role.");
+    }
+
+    return sendResponse(res, 200, "Teams retrieved successfully.", result);
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+

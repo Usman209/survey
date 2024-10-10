@@ -28,17 +28,63 @@ exports.userProfile = async (req, res) => {
   }
 };
 
+// exports.userList = async (req, res) => {
+//   try {
+//     const users = await pagenate({
+//       model: USER,
+//       projection: "name email role status",
+//     });
+//     return sendResponse(res, EResponseCode.SUCCESS, "User list", users);
+//   } catch (err) {
+//     errReturned(res, err);
+//   }
+// };
+
+
 exports.userList = async (req, res) => {
   try {
-    const users = await pagenate({
-      model: USER,
-      projection: "firstName email role status",
-    });
+    const { id, role } = req.user; // Assuming you have user info in req.user
+
+    let  result = [];
+
+    if (role === "UCMO") {
+      
+      const aics = await USER.find({ ucmo: id, role: "AIC" });
+
+      for (const aic of aics) {
+        // Ensure you fetch FLWs associated with this specific AIC
+        const flws = await USER.find({ aic: aic._id, role: "FLW" });
+        result.push({ aic, flws });
+      }
+
+    } else if (role === "AIC") {
+      // If the logged-in user is an AIC, fetch all FLWs under this AIC
+       users = await USER.find({ aic: id, role: "FLW" });
+    }
+    
+    else if (role === "FLW") {
+      const flw = await USER.findById(id);
+      return sendResponse(res, 200, "Your information retrieved successfully.", flw);
+    }
+    
+    else {
+      // If the user is an admin, get all users
+      users = await pagenate({
+        model: USER,
+        projection: "firstName email role status",
+      });
+    }
+
     return sendResponse(res, EResponseCode.SUCCESS, "User list", users);
   } catch (err) {
-    errReturned(res, err);
+    return errReturned(res, err);
   }
 };
+
+
+
+
+
 
 exports.updatePassword = async (req, res) => {
   try {
@@ -264,11 +310,29 @@ exports.addUmco = async (req, res) => {
 };
 
 exports.addAic = async (req, res) => {
-  return await addUserWithRole(req, res, "AIC");
+  try {
+    if (!req.body.ucmo) {
+      return errReturned(res, "ucmo is required.");
+    }
+
+    return await addUserWithRole(req, res, "AIC");
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
 };
 
+
 exports.addFlw = async (req, res) => {
-  return await addUserWithRole(req, res, "FLW");
+
+  try {
+    if (!req.body.aic) {
+      return errReturned(res, "aic is required.");
+    }
+
+    return await addUserWithRole(req, res, "FLW");
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
 };
 
 const addUserWithRole = async (req, res, role) => {
@@ -297,4 +361,63 @@ const addUserWithRole = async (req, res, role) => {
     return errReturned(res, error.message || "An error occurred");
   }
 };
+
+
+exports.searchFlw = async (req, res) => {
+  try {
+    const { firstName, cnic, phone, aic } = req.query;
+    const query = { role:'FLW'}; 
+    if (firstName) query.firstName = { $regex: firstName, $options: 'i' };
+    if (cnic) query.cnic = cnic; // Exact match for CNIC
+    if (phone) query.phone = phone; // Exact match for phone
+    if (aic) query.aic = aic; // Exact match for AIC
+
+    const flws = await USER.find(query);
+    return sendResponse(res, 200, "FLWs retrieved successfully.", flws);
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+
+
+
+exports.getUsersByUcmo = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find all AICs under the specified UCMO
+    const aics = await USER.find({ ucmo: id, role: "AIC" });
+
+    // Initialize an array to hold results
+    const result = [];
+
+    // Fetch FLWs for each AIC
+    for (const aic of aics) {
+      // Ensure you fetch FLWs associated with this specific AIC
+      const flws = await USER.find({ aic: aic._id, role: "FLW" });
+      result.push({ aic, flws });
+    }
+
+    return sendResponse(res, 200, "AICs and their FLWs retrieved successfully.", result);
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+
+
+exports.getFlwsByAic = async (req, res) => {
+  try {
+    const { id } = req.params; // AIC ID
+
+    // Find all FLWs associated with the specified AIC
+    const flws = await USER.find({ aic: id, role: "FLW" });
+
+    return sendResponse(res, 200, "FLWs retrieved successfully.", flws);
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+
+
+
 
