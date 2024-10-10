@@ -420,7 +420,7 @@ exports.getFlwsByAic = async (req, res) => {
 
 exports.assignTerritoryToUser = async (req, res) =>{
   try {
-    const { userId, territoryId } = req.params;
+    const { userId, territoryId } = req.body;
 
     let territory = await TERRITORY.findById(territoryId);
 
