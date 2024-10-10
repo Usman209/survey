@@ -183,6 +183,16 @@ exports.getAllUCMOs = async (req, res) => {
   }
 };
 
+
+exports.getAllAdmins = async (req, res) => {
+  try {
+    const ucmos = await USER.find({ role: 'ADMIN' }, "firstName email role cnic  phone status"); // Adjust the projection as needed
+    return sendResponse(res, EResponseCode.SUCCESS, "Admin list", ucmos);
+  } catch (err) {
+    errReturned(res, err);
+  }
+};
+
 exports.getAllAICs = async (req, res) => {
   try {
     const aics = await USER.find({ role: 'AIC' }, "firstName email role cnic phone status"); // Adjust the projection as needed

@@ -56,6 +56,8 @@ router.get('/flw-search', controller.searchFlw);
 
 
 router.get('/all-ucmo', controller.getAllUCMOs);
+router.get('/all-admin', controller.getAllAdmins);
+
 router.get('/all-aic', controller.getAllAICs);
 router.get('/all-flw', controller.getAllFLWs);
 
