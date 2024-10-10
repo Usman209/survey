@@ -213,7 +213,7 @@ exports.getUsersByRole = async (req, res) => {
 exports.getAICsByUCMO = async (req, res) => {
   try {
     const { ucmoId } = req.params;
-    const aics = await USER.find({ role: 'AIC', ucmoId }, "firstName email cnic phone role status");
+    const aics = await USER.find({ role: 'AIC', ucmo: ucmoId }, "firstName email cnic phone role status");
     return sendResponse(res, EResponseCode.SUCCESS, "AICs under UCMO", aics);
   } catch (err) {
     errReturned(res, err);
@@ -222,8 +222,8 @@ exports.getAICsByUCMO = async (req, res) => {
 
 exports.getFLWsByAIC = async (req, res) => {
   try {
-    const { aicId } = req.params;
-    const flws = await USER.find({ role: 'FLW', aicId }, "firstName email cnic phone role status");
+    const { id } = req.params;
+    const flws = await USER.find({ role: 'FLW', aic: id }, "firstName email cnic phone role status");
     return sendResponse(res, EResponseCode.SUCCESS, "FLWs under AIC", flws);
   } catch (err) {
     errReturned(res, err);
