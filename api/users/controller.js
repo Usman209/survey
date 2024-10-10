@@ -1,5 +1,7 @@
 const bcrypt = require("bcryptjs");
 const USER = require("../../lib/schema/users.schema");
+const TERRITORY = require("../../lib/schema/territory.schema")
+
 
 require("dotenv").config();
 
@@ -416,6 +418,38 @@ exports.getFlwsByAic = async (req, res) => {
   }
 };
 
+exports.assignTerritoryToUser = async (req, res) =>{
+  try {
+    const { userId, territoryId } = req.params;
+
+    let territory = await TERRITORY.findById(territoryId);
+
+    if(territory === null){
+      return sendResponse(res, EResponseCode.NOTFOUND, "Territory doesn't exist." );
+    }
+
+    let profile = await findByIdAndUpdate({
+      model: USER,
+      id: userId,
+      updateData: { territory: territoryId },
+      options: {new: true}
+    });
+
+    if(profile===null){
+      return sendResponse(res, EResponseCode.NOTFOUND, "No user found against provided ID." );
+    }
+
+    return sendResponse(
+      res,
+      EResponseCode.SUCCESS,
+      "Territory has been assigned",
+      profile
+    );
+    
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+}
 
 
 
