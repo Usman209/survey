@@ -55,6 +55,15 @@ router.post('/add-flw', controller.addFlw);
 router.get('/flw-search', controller.searchFlw);
 
 
+router.get('/all-ucmo', controller.getAllUCMOs);
+router.get('/all-aic', controller.getAllAICs);
+router.get('/all-flw', controller.getAllFLWs);
+
+
+
+
+
+
 
 router.get('/ucmo/:id', controller.getUsersByUcmo);
 router.get('/aic/:id', controller.getFLWsByAIC);
