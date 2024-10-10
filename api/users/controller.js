@@ -32,7 +32,7 @@ exports.userList = async (req, res) => {
   try {
     const users = await pagenate({
       model: USER,
-      projection: "name email role status",
+      projection: "firstName email role status",
     });
     return sendResponse(res, EResponseCode.SUCCESS, "User list", users);
   } catch (err) {
@@ -121,7 +121,7 @@ exports.userDetail = async (req, res) => {
 
 exports.getAllFLWs = async (req, res) => {
   try {
-    const flws = await USER.find({ role: 'FLW' }, "name email role status"); // Adjust the projection as needed
+    const flws = await USER.find({ role: 'FLW' }, "firstName email role status"); // Adjust the projection as needed
     return sendResponse(res, EResponseCode.SUCCESS, "FLW list", flws);
   } catch (err) {
     errReturned(res, err);
@@ -130,7 +130,7 @@ exports.getAllFLWs = async (req, res) => {
 
 exports.getAllUCMOs = async (req, res) => {
   try {
-    const ucmos = await USER.find({ role: 'UCMO' }, "name email role status"); // Adjust the projection as needed
+    const ucmos = await USER.find({ role: 'UCMO' }, "firstName email role status"); // Adjust the projection as needed
     return sendResponse(res, EResponseCode.SUCCESS, "UCMO list", ucmos);
   } catch (err) {
     errReturned(res, err);
@@ -139,7 +139,7 @@ exports.getAllUCMOs = async (req, res) => {
 
 exports.getAllAICs = async (req, res) => {
   try {
-    const aics = await USER.find({ role: 'AIC' }, "name email role status"); // Adjust the projection as needed
+    const aics = await USER.find({ role: 'AIC' }, "firstName email role status"); // Adjust the projection as needed
     return sendResponse(res, EResponseCode.SUCCESS, "AIC list", aics);
   } catch (err) {
     errReturned(res, err);
@@ -156,7 +156,7 @@ exports.getUsersByRole = async (req, res) => {
       return sendResponse(res, EResponseCode.BADREQUEST, "Invalid role provided");
     }
 
-    const users = await USER.find({ role }, "name email role status"); // Adjust the projection as needed
+    const users = await USER.find({ role }, "firstName email role status"); // Adjust the projection as needed
     return sendResponse(res, EResponseCode.SUCCESS, `${role} list`, users);
   } catch (err) {
     errReturned(res, err);
@@ -167,7 +167,7 @@ exports.getUsersByRole = async (req, res) => {
 exports.getAICsByUCMO = async (req, res) => {
   try {
     const { ucmoId } = req.params;
-    const aics = await USER.find({ role: 'AIC', ucmo: ucmoId }, "name email role status");
+    const aics = await USER.find({ role: 'AIC', ucmo: ucmoId }, "firstName email role status");
     return sendResponse(res, EResponseCode.SUCCESS, "AICs under UCMO", aics);
   } catch (err) {
     errReturned(res, err);
@@ -177,7 +177,7 @@ exports.getAICsByUCMO = async (req, res) => {
 exports.getFLWsByAIC = async (req, res) => {
   try {
     const { aicId } = req.params;
-    const flws = await USER.find({ role: 'FLW', aic: aicId }, "name email role status");
+    const flws = await USER.find({ role: 'FLW', aic: aicId }, "firstName email role status");
     return sendResponse(res, EResponseCode.SUCCESS, "FLWs under AIC", flws);
   } catch (err) {
     errReturned(res, err);
@@ -244,7 +244,7 @@ exports.searchUsers = async (req, res) => {
     }
 
     // Fetch users matching the query
-    const users = await USER.find(query).select("name email role status");
+    const users = await USER.find(query).select("firstName email role status");
 
     // Return the results
     return sendResponse(res, EResponseCode.SUCCESS, "User search results", users);
