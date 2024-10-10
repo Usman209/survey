@@ -199,7 +199,7 @@ exports.getUsersByRole = async (req, res) => {
     // Validate role input
     const validRoles = ['FLW', 'UCMO', 'AIC'];
     if (!validRoles.includes(role)) {
-      return sendResponse(res, EResponseCode.BAD_REQUEST, "Invalid role provided");
+      return sendResponse(res, EResponseCode.BADREQUEST, "Invalid role provided");
     }
 
     const users = await USER.find({ role }, "firstName email role cnic phone status"); // Adjust the projection as needed
@@ -242,12 +242,12 @@ exports.getUCMOWithAICsAndFLWs = async (req, res) => {
     }
 
     // Fetch all AICs under the UCMO
-    const aics = await USER.find({ role: 'AIC', ucmoId: ucmoId });
+    const aics = await USER.find({ role: 'AIC', ucmo: ucmoId });
 
     // Fetch FLWs for each AIC
     const aicsWithFLWs = await Promise.all(
       aics.map(async (aic) => {
-        const flws = await USER.find({ role: 'FLW', aicId: aic._id });
+        const flws = await USER.find({ role: 'FLW', aic: aic._id });
         return { ...aic.toObject(), flws }; // Include FLWs in the AIC object
       })
     );
