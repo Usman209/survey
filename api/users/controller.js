@@ -32,7 +32,7 @@ exports.userProfile = async (req, res) => {
 //   try {
 //     const users = await pagenate({
 //       model: USER,
-//       projection: "name email role status",
+//       projection: "firstName email role status",
 //     });
 //     return sendResponse(res, EResponseCode.SUCCESS, "User list", users);
 //   } catch (err) {
@@ -71,7 +71,7 @@ exports.userList = async (req, res) => {
       // If the user is an admin, get all users
       users = await pagenate({
         model: USER,
-        projection: "firstName email role status",
+        projection: "firstName email role cnic status",
       });
     }
 
@@ -167,7 +167,7 @@ exports.userDetail = async (req, res) => {
 
 exports.getAllFLWs = async (req, res) => {
   try {
-    const flws = await USER.find({ role: 'FLW' }, "firstName email role status"); // Adjust the projection as needed
+    const flws = await USER.find({ role: 'FLW' }, "firstName email role cnic phone status"); // Adjust the projection as needed
     return sendResponse(res, EResponseCode.SUCCESS, "FLW list", flws);
   } catch (err) {
     errReturned(res, err);
@@ -176,7 +176,7 @@ exports.getAllFLWs = async (req, res) => {
 
 exports.getAllUCMOs = async (req, res) => {
   try {
-    const ucmos = await USER.find({ role: 'UCMO' }, "firstName email role status"); // Adjust the projection as needed
+    const ucmos = await USER.find({ role: 'UCMO' }, "firstName email role cnic  phone status"); // Adjust the projection as needed
     return sendResponse(res, EResponseCode.SUCCESS, "UCMO list", ucmos);
   } catch (err) {
     errReturned(res, err);
@@ -185,7 +185,7 @@ exports.getAllUCMOs = async (req, res) => {
 
 exports.getAllAICs = async (req, res) => {
   try {
-    const aics = await USER.find({ role: 'AIC' }, "firstName email role status"); // Adjust the projection as needed
+    const aics = await USER.find({ role: 'AIC' }, "firstName email role cnic phone status"); // Adjust the projection as needed
     return sendResponse(res, EResponseCode.SUCCESS, "AIC list", aics);
   } catch (err) {
     errReturned(res, err);
@@ -202,7 +202,7 @@ exports.getUsersByRole = async (req, res) => {
       return sendResponse(res, EResponseCode.BADREQUEST, "Invalid role provided");
     }
 
-    const users = await USER.find({ role }, "firstName email role status"); // Adjust the projection as needed
+    const users = await USER.find({ role }, "firstName email role cnic phone status"); // Adjust the projection as needed
     return sendResponse(res, EResponseCode.SUCCESS, `${role} list`, users);
   } catch (err) {
     errReturned(res, err);
@@ -213,7 +213,7 @@ exports.getUsersByRole = async (req, res) => {
 exports.getAICsByUCMO = async (req, res) => {
   try {
     const { ucmoId } = req.params;
-    const aics = await USER.find({ role: 'AIC', ucmo: ucmoId }, "firstName email role status");
+    const aics = await USER.find({ role: 'AIC', ucmoId }, "firstName email cnic phone role status");
     return sendResponse(res, EResponseCode.SUCCESS, "AICs under UCMO", aics);
   } catch (err) {
     errReturned(res, err);
@@ -223,7 +223,7 @@ exports.getAICsByUCMO = async (req, res) => {
 exports.getFLWsByAIC = async (req, res) => {
   try {
     const { aicId } = req.params;
-    const flws = await USER.find({ role: 'FLW', aic: aicId }, "firstName email role status");
+    const flws = await USER.find({ role: 'FLW', aicId }, "firstName email cnic phone role status");
     return sendResponse(res, EResponseCode.SUCCESS, "FLWs under AIC", flws);
   } catch (err) {
     errReturned(res, err);
@@ -268,7 +268,7 @@ exports.getUCMOWithAICsAndFLWs = async (req, res) => {
 
 exports.searchUsers = async (req, res) => {
   try {
-    const { role, name, email, status } = req.query;
+    const { role, firstName, email, status } = req.query;
 
     // Build the query object
     const query = {};
@@ -277,10 +277,8 @@ exports.searchUsers = async (req, res) => {
     if (role) {
       query.role = role;
     }
-    if (name) {
-      query.$or = [];
-      query.$or.push({firstName:{$regex: name, $options: 'i'}});
-      query.$or.push({lastName:{$regex: name, $options: 'i'}});
+    if (firstName) {
+      query.firstName = { $regex: firstName, $options: 'i' }; // Case-insensitive search
     }
     if (email) {
       query.email = { $regex: email, $options: 'i' };
@@ -290,7 +288,7 @@ exports.searchUsers = async (req, res) => {
     }
 
     // Fetch users matching the query
-    const users = await USER.find(query).select("firstName email role status");
+    const users = await USER.find(query).select("firstName email cnic role phone status");
 
     // Return the results
     return sendResponse(res, EResponseCode.SUCCESS, "User search results", users);
