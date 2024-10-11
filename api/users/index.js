@@ -71,9 +71,7 @@ router.get('/ucmo/:id', controller.getUsersByUcmo);
 router.get('/aic/:id', controller.getFLWsByAIC);
 
 
-
-
-
+router.patch('/assign-update-territory', controller.assignTerritoryToUser);
   
 
 router.route('/:id')
