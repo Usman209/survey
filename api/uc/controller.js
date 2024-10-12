@@ -17,7 +17,7 @@ exports.createUc = async (req, res) => {
 // Get all ucs
 exports.getAllUcs = async (req, res) => {
   try {
-    const ucs = await Uc.find().populate('division');
+    const ucs = await Uc.find();
     return sendResponse(res, 200, "Ucs retrieved successfully.", ucs);
   } catch (error) {
     return errReturned(res, error.message);
