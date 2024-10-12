@@ -63,12 +63,17 @@ exports.removeFLWFromTeam = async (req, res) => {
 
 exports.createTeam = async (req, res) => {
   try {
-    const teamNumber = await generateUniqueTeamNumber();
+    
+    const uc = req.body.territory?.uc;
+    if (!uc) {
+      return errReturned(res, "UC is required.");
+    }
+    const teamName = await generateUniqueTeamName(uc);
 
-    // Create a new team with the generated team number
+    // Create a new team with the generated team number and unique name
     const team = new Team({
       ...req.body,
-      teamNumber,
+      teamName, // Set the unique team name
     });
 
     const savedTeam = await team.save();
@@ -77,6 +82,7 @@ exports.createTeam = async (req, res) => {
     return errReturned(res, error.message);
   }
 };
+
 
 exports.getAllTeams = async (req, res) => {
   try {
@@ -89,13 +95,19 @@ exports.getAllTeams = async (req, res) => {
 
 exports.getTeamById = async (req, res) => {
   try {
-    const team = await Team.findById(req.params.id).populate('flws createdBy');
+    const team = await Team.findById(req.params.id)
+      .populate('flws createdBy') // Populate FLWs and the creator
+      .populate('aic', '_id firstName lastName phone cnic') // Populate AIC with specific fields
+      .populate('ucmo', '_id firstName lastName phone cnic'); // Populate UCMO with specific fields
+
     if (!team) return errReturned(res, "Team not found.");
+
     return sendResponse(res, 200, "Team fetched successfully.", team);
   } catch (error) {
     return errReturned(res, error.message);
   }
 };
+
 
 exports.updateTeam = async (req, res) => {
   try {
@@ -118,47 +130,8 @@ exports.deleteTeam = async (req, res) => {
 };
 
 
-const generateUniqueTeamNumber = async () => {
-  let teamNumber;
-  let exists = true;
-
-  while (exists) {
-    // Generate a random 4-digit number
-    teamNumber = Math.floor(1000 + Math.random() * 9000);
-
-    // Check if it exists in the database
-    exists = await USER.findOne({ teamNumber }); // Change USER to your model name
-  }
-
-  return teamNumber;
-};
 
 
-
-
-exports.searchTeams = async (req, res) => {
-
-  try {
-    const { teamNumber, teamName, townOrTehsil, uc, district } = req.query;
-
-
-    console.log(req.query);
-
-
-    // Build the query object
-    const query = {};
-    if (teamNumber) query.teamNumber = teamNumber;
-    if (teamName) query.teamName = { $regex: teamName, $options: 'i' }; // Case-insensitive search
-    if (townOrTehsil) query.townOrTehsil = { $regex: townOrTehsil, $options: 'i' };
-    if (uc) query.uc = { $regex: uc, $options: 'i' };
-    if (district) query.district = { $regex: district, $options: 'i' };
-
-    const teams = await Team.find(query);
-    return sendResponse(res, 200, "Teams retrieved successfully.", teams);
-  } catch (error) {
-    return errReturned(res, error.message);
-  }
-};
 
 
 
@@ -204,3 +177,50 @@ exports.getTeamsByUcmo = async (req, res) => {
   }
 };
 
+
+
+exports.searchTeams = async (req, res) => {
+  try {
+    const { teamNumber, teamName, district, division, uc, tehsilOrTown, aic, ucmo } = req.query;
+
+    // Create a filter object based on provided query parameters
+    const filter = {};
+    
+    if (teamNumber) filter.teamNumber = teamNumber;
+    if (teamName) filter.teamName = new RegExp(teamName, 'i'); // Case-insensitive search
+    
+    // Filter by territory fields
+    if (district) filter.territory = { ...filter.territory, district: new RegExp(district, 'i') };
+    if (division) filter.territory = { ...filter.territory, division: new RegExp(division, 'i') };
+    if (uc) filter.territory = { ...filter.territory, uc: new RegExp(uc, 'i') };
+    if (tehsilOrTown) filter.territory = { ...filter.territory, tehsilOrTown: new RegExp(tehsilOrTown, 'i') };
+
+    // Filter by AIC and UCMO
+    if (aic) filter.aic = aic;
+    if (ucmo) filter.ucmo = ucmo;
+
+    // Fetch teams based on the filter
+    const teams = await Team.find(filter);
+
+    return sendResponse(res, 200, "Teams retrieved successfully.", teams);
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+
+
+
+const generateUniqueTeamName = async (uc) => {
+  // Initialize variables
+  let baseName = `${uc}`;
+  let counter = 1;
+  let uniqueName = `${baseName}-${counter}`;
+
+  // Check for existing teams with the same name
+  while (await Team.findOne({ teamName: uniqueName })) {
+    counter++;
+    uniqueName = `${baseName}-${counter}`;
+  }
+
+  return uniqueName;
+};

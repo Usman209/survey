@@ -1,5 +1,5 @@
 // controllers/tehsilController.js
-const Tehsil = require("../../lib/schema/tehsil.schema");
+const Tehsil = require("../../lib/schema/tehsiltown.schema");
 const { sendResponse, errReturned } = require("../../lib/utils/dto");
 
 
@@ -17,7 +17,7 @@ exports.createTehsil = async (req, res) => {
 // Get all tehsils
 exports.getAllTehsils = async (req, res) => {
   try {
-    const tehsils = await Tehsil.find().populate('division');
+    const tehsils = await Tehsil.find();
     return sendResponse(res, 200, "Tehsils retrieved successfully.", tehsils);
   } catch (error) {
     return errReturned(res, error.message);

@@ -17,7 +17,7 @@ exports.createDistrict = async (req, res) => {
 // Get all districts
 exports.getAllDistricts = async (req, res) => {
   try {
-    const districts = await District.find().populate('division');
+    const districts = await District.find();
     return sendResponse(res, 200, "Districts retrieved successfully.", districts);
   } catch (error) {
     return errReturned(res, error.message);
@@ -27,7 +27,7 @@ exports.getAllDistricts = async (req, res) => {
 // Get a single district by ID
 exports.getDistrictById = async (req, res) => {
   try {
-    const district = await District.findById(req.params.id).populate('division');
+    const district = await District.findById(req.params.id);
     if (!district) return errReturned(res, "District not found.");
     return sendResponse(res, 200, "District retrieved successfully.", district);
   } catch (error) {

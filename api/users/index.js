@@ -29,8 +29,8 @@ router
   .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.getUsersByRole); 
 
   router
-  .route("/ucmos/:ucmoId/aics")
-  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.getAICsByUCMO); // Get all AICs under a specific UCMO
+  .route("/umco/:ucmoId/aics")
+  .get( controller.getAICsByUCMO); // Get all AICs under a specific UCMO
 
 router
   .route("/aics/:aicId/flws")
@@ -68,10 +68,12 @@ router.get('/all-flw', controller.getAllFLWs);
 
 
 router.get('/ucmo/:id', controller.getUsersByUcmo);
+router.get('/ucmo/aics/:id', controller.getAICsByUCMO);
+
 router.get('/aic/:id', controller.getFLWsByAIC);
 
 
-router.patch('/assign-update-territory', controller.assignTerritoryToUser);
+// router.patch('/assign-update-territory', controller.assignTerritoryToUser);
   
 
 router.route('/:id')

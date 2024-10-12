@@ -16,7 +16,7 @@ exports.createDivision = async (req, res) => {
 // Get all divisions
 exports.getAllDivisions = async (req, res) => {
   try {
-    const divisions = await Division.find().populate('division');
+    const divisions = await Division.find();
     return sendResponse(res, 200, "Divisions retrieved successfully.", divisions);
   } catch (error) {
     return errReturned(res, error.message);
@@ -26,7 +26,7 @@ exports.getAllDivisions = async (req, res) => {
 // Get a single division by ID
 exports.getDivisionById = async (req, res) => {
   try {
-    const division = await Division.findById(req.params.id).populate('division');
+    const division = await Division.findById(req.params.id);
     if (!division) return errReturned(res, "Division not found.");
     return sendResponse(res, 200, "Division retrieved successfully.", division);
   } catch (error) {

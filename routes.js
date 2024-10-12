@@ -18,9 +18,6 @@ module.exports = (app) => {
   app.use('/api/tehsil', require('./api/tehsil'));
   app.use('/api/uc', require('./api/uc'));
 
-
-
-
   
 };
 
