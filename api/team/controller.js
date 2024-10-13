@@ -63,14 +63,24 @@ exports.removeFLWFromTeam = async (req, res) => {
 
 exports.createTeam = async (req, res) => {
   try {
-    
     const uc = req.body.territory?.uc;
     if (!uc) {
       return errReturned(res, "UC is required.");
     }
+
     const teamName = await generateUniqueTeamName(uc);
 
-    // Create a new team with the generated team number and unique name
+    // Check if any FLW is already in another team
+    const flwIds = req.body.flws; // Assuming FLWs are passed in the request body
+    if (flwIds && flwIds.length > 0) {
+      const existingTeams = await Team.find({ flws: { $in: flwIds } });
+
+      if (existingTeams.length > 0) {
+        return errReturned(res, "One or more FLWs are already assigned to another team.");
+      }
+    }
+
+    // Create a new team with the generated team name
     const team = new Team({
       ...req.body,
       teamName, // Set the unique team name
@@ -223,4 +233,74 @@ const generateUniqueTeamName = async (uc) => {
   }
 
   return uniqueName;
+};
+
+
+
+
+exports.getTeamDetailsByUserId = async (req, res) => {
+  try {
+    const { id } = req.params; // Get user ID from request parameters
+
+    // Find the user by ID
+    const user = await USER.findById(id);
+
+    if (!user) {
+      return errReturned(res, "User not found.");
+    }
+
+    let teamDetails;
+
+    if (user.role === 'FLW') {
+      // If the user is an FLW, find teams where this FLW is part of
+      teamDetails = await Team.find({ flws: id })
+        .populate('ucmo aic') // Populate UCMO and AIC details
+        .select('territory teamName ucmo aic');
+
+    } else if (user.role === 'AIC') {
+      // If the user is an AIC, find teams where this AIC is assigned
+      teamDetails = await Team.find({ aic: id })
+        .populate('flws ucmo') // Populate FLWs and UCMO details
+        .select('territory teamName flws ucmo');
+
+    } else if (user.role === 'UCMO') {
+      // If the user is a UCMO, find teams where this UCMO is assigned
+      teamDetails = await Team.find({ ucmo: id })
+        .populate('flws aic') // Populate FLWs and AIC details
+        .select('territory teamName flws aic');
+    } else {
+      return errReturned(res, "User role not recognized.");
+    }
+
+    if (teamDetails.length === 0) {
+      return errReturned(res, "No teams found for this user.");
+    }
+
+    // Process to create distinct UCs with UCMO or AIC details and team names
+    const response = [];
+    const ucMap = new Map();
+
+    teamDetails.forEach(team => {
+      const ucKey = team.territory.uc;
+
+      if (!ucMap.has(ucKey)) {
+        ucMap.set(ucKey, {
+          uc: ucKey,
+          ucmo: team.ucmo || null, // Include UCMO details if available
+          aic: team.aic || null,    // Include AIC details if available
+          teamNames: []
+        });
+      }
+      ucMap.get(ucKey).teamNames.push(team.teamName);
+    });
+
+    // Convert map to array
+    ucMap.forEach(value => {
+      response.push(value);
+    });
+
+    return sendResponse(res, 200, "Team details fetched successfully.", response);
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
 };

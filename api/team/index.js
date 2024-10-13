@@ -21,6 +21,11 @@ router.get('/team/search', teamController.searchTeams);
 router.get('/team/all', teamController.getTeamsByUcmo); 
 
 
+router.get('/user/:id', teamController.getTeamDetailsByUserId); 
+
+
+
+
 
 
 module.exports = router;
