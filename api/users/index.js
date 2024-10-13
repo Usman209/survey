@@ -9,24 +9,24 @@ const { EUserRole } = require("../../lib/utils/enum");
 
 router
   .route("/")
-  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.userList)
-  .patch(authenticateAndAuthorize([EUserRole.ADMIN]), controller.updatePassword);
+  .get( controller.userList)
+  .patch( controller.updatePassword);
 
   router
   .route("/flws")
-  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.getAllFLWs);
+  .get( controller.getAllFLWs);
 
 router
   .route("/ucmos")
-  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.getAllUCMOs);
+  .get( controller.getAllUCMOs);
 
 router
   .route("/aics")
-  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.getAllAICs);
+  .get( controller.getAllAICs);
 
   router
   .route("/role")
-  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.getUsersByRole); 
+  .get( controller.getUsersByRole); 
 
   router
   .route("/umco/:ucmoId/aics")
@@ -34,16 +34,16 @@ router
 
 router
   .route("/aics/:aicId/flws")
-  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.getFLWsByAIC); // Get all FLWs under a specific AIC
+  .get(controller.getFLWsByAIC); // Get all FLWs under a specific AIC
 
 
   router
   .route("/ucmos/:ucmoId/with-aics-flws")
-  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.getUCMOWithAICsAndFLWs);
+  .get( controller.getUCMOWithAICsAndFLWs);
 
   router
   .route("/search")
-  .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.searchUsers);
+  .get( controller.searchUsers);
 
 
 
@@ -77,7 +77,7 @@ router.get('/aic/:id', controller.getFLWsByAIC);
   
 
 router.route('/:id')
-// .get(authenticateAndAuthorize([EUserRole.ADMIN]), controller.userDetail)
+// .get( controller.userDetail)
 .get(controller.userProfile)
 .put(controller.updateProfile);
 
