@@ -121,13 +121,24 @@ exports.getTeamById = async (req, res) => {
 
 exports.updateTeam = async (req, res) => {
   try {
-    const updatedTeam = await Team.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updatedTeam) return errReturned(res, "Team not found.");
+    // Filter out fields that are null from the request body
+    const updateData = Object.fromEntries(
+      Object.entries(req.body).filter(([_, value]) => value !== null)
+    );
+
+    const updatedTeam = await Team.findByIdAndUpdate(req.params.id, updateData, { new: true });
+
+    if (!updatedTeam) {
+      return errReturned(res, "Team not found.");
+    }
+
     return sendResponse(res, 200, "Team updated successfully.", updatedTeam);
   } catch (error) {
     return errReturned(res, error.message);
   }
 };
+
+
 
 exports.deleteTeam = async (req, res) => {
   try {
