@@ -234,8 +234,8 @@ exports.getAICsByUCMO = async (req, res) => {
 
 exports.getFLWsByAIC = async (req, res) => {
   try {
-    const { id } = req.params;
-    const flws = await USER.find({ role: 'FLW', aic: id }, "firstName email cnic phone role status");
+    const { aicId } = req.params;
+    const flws = await USER.find({ role: 'FLW', aic: aicId }, "firstName email cnic phone role status");
     return sendResponse(res, EResponseCode.SUCCESS, "FLWs under AIC", flws);
   } catch (err) {
     errReturned(res, err);
