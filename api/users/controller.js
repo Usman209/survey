@@ -18,6 +18,7 @@ const {
   updatePasswordSchemaValidator,
   userRegisterSchemaValidator,
 } = require("../../lib/utils/sanitization");
+const { generateRandomEmail } = require("../../lib/utils/generateEmailAddress");
 
 exports.userProfile = async (req, res) => {
   try {
@@ -352,7 +353,15 @@ const addUserWithRole = async (req, res, role) => {
       return errReturned(res, error.message);
     }
 
-    const { email, cnic, phone } = value;
+    const { cnic, phone } = value;
+    let {email} = value;
+
+    if(!email){
+      email = generateRandomEmail(value.firstName);
+      value.email = email;
+    }
+
+
     const emailExist = await USER.findOne({ email });
     if (emailExist) return errReturned(res, "Email Already Exists");
 
