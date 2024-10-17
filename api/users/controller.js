@@ -127,23 +127,11 @@ exports.updateProfile = async (req, res) => {
     const userId = req?.params?.id 
 
     const { error, value } = updateProfileSchemaValidator.validate(req.body, {
-      stripUnknown: true, // Exclude unknown fields, including "_id"
+      stripUnknown: true, 
     });    if (error) {
       return errReturned(res, error.message);
     }
     
-    const hasNewImage = value.profileImg !== undefined && value.profileImg !== null;
-
-    // If a new image is provided, delete the previous image
-    if (hasNewImage) {
-      const user = await findById({ model: USER, id: userId  });
-
-      if (user && user.profileImg) {
-        // Assuming user.image is the field where the image path is stored
-        // Delete the previous image
-        await fs.unlink(user.profileImg);
-      }
-    }
 
     const profile = await findByIdAndUpdate({
       model: USER,
@@ -487,3 +475,42 @@ exports.getFlwsByAic = async (req, res) => {
 
 
 
+// Activate a user by ID
+exports.activateUser = async (req, res) => {
+  try {
+    const userId = req.params.id; // Extract user ID from the request parameters
+    const user = await USER.findById(userId);
+
+    if (!user) {
+      return errReturned(res, "User not found.");
+    }
+
+    // Set user status to ACTIVE
+    user.status = 'ACTIVE'; // Adjust the field name based on your schema
+    await user.save();
+
+    return sendResponse(res, EResponseCode.SUCCESS, "User activated successfully.", user);
+  } catch (error) {
+    return errReturned(res, error.message || "An error occurred");
+  }
+};
+
+// Deactivate a user by ID
+exports.deactivateUser = async (req, res) => {
+  try {
+    const userId = req.params.id; // Extract user ID from the request parameters
+    const user = await USER.findById(userId);
+
+    if (!user) {
+      return errReturned(res, "User not found.");
+    }
+
+    // Set user status to INACTIVE
+    user.status = 'INACTIVE'; // Adjust the field name based on your schema
+    await user.save();
+
+    return sendResponse(res, EResponseCode.SUCCESS, "User deactivated successfully.", user);
+  } catch (error) {
+    return errReturned(res, error.message || "An error occurred");
+  }
+};

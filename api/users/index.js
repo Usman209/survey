@@ -74,6 +74,12 @@ router.get('/aic/:id', controller.getFLWsByAIC);
 
 
 // router.patch('/assign-update-territory', controller.assignTerritoryToUser);
+
+
+
+router.get('/active/:id', controller.activateUser);
+router.get('/inactive/:id', controller.deactivateUser);
+
   
 
 router.route('/:id')

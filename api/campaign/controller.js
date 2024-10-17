@@ -1,7 +1,6 @@
 const { errReturned, sendResponse } = require('../../lib/utils/dto');
-const Campaign = require('../../lib/schema/campaign.schema'); // Adjust the path as needed
+const Campaign = require('../../lib/schema/campaign.schema'); 
 
-// Create a new campaign
 exports.createCampaign = async (req, res) => {
   try {
     const campaign = new Campaign(req.body);
@@ -12,20 +11,18 @@ exports.createCampaign = async (req, res) => {
   }
 };
 
-// Get all campaigns
 exports.getAllCampaigns = async (req, res) => {
   try {
-    const campaigns = await Campaign.find().populate('assignedTeam createdBy');
+    const campaigns = await Campaign.find(); 
     return sendResponse(res, 200, "Campaigns fetched successfully.", campaigns);
   } catch (error) {
     return errReturned(res, error.message);
   }
 };
 
-// Get a single campaign by ID
 exports.getCampaignById = async (req, res) => {
   try {
-    const campaign = await Campaign.findById(req.params.id).populate('assignedTeam createdBy');
+    const campaign = await Campaign.findById(req.params.id); 
     if (!campaign) return errReturned(res, "Campaign not found.");
     return sendResponse(res, 200, "Campaign fetched successfully.", campaign);
   } catch (error) {
@@ -33,7 +30,6 @@ exports.getCampaignById = async (req, res) => {
   }
 };
 
-// Update a campaign by ID
 exports.updateCampaign = async (req, res) => {
   try {
     const updatedCampaign = await Campaign.findByIdAndUpdate(req.params.id, req.body, { new: true });
@@ -44,12 +40,53 @@ exports.updateCampaign = async (req, res) => {
   }
 };
 
-// Delete a campaign by ID
+
 exports.deleteCampaign = async (req, res) => {
   try {
-    const deletedCampaign = await Campaign.findByIdAndDelete(req.params.id);
-    if (!deletedCampaign) return errReturned(res, "Campaign not found.");
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) return errReturned(res, "Campaign not found.");
+
+    
+    if (campaign.status === 'ACTIVE') {
+      return errReturned(res, "Active campaigns cannot be deleted.");
+    }
+
+    await Campaign.findByIdAndDelete(req.params.id);
     return sendResponse(res, 200, "Campaign deleted successfully.");
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+
+
+exports.activateCampaign = async (req, res) => {
+  try {
+    const activeCampaign = await Campaign.findOne({ status: 'ACTIVE' });
+    if (activeCampaign) {
+      return errReturned(res, `There is already an active campaign: ${activeCampaign.campaignName}. Please deactivate it first.`);
+    }
+
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) return errReturned(res, "Campaign not found.");
+
+    campaign.status = 'ACTIVE';
+    await campaign.save();
+
+    return sendResponse(res, 200, "Campaign activated successfully.", campaign);
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+
+exports.deactivateCampaign = async (req, res) => {
+  try {
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) return errReturned(res, "Campaign not found.");
+
+    campaign.status = 'INACTIVE';
+    await campaign.save();
+
+    return sendResponse(res, 200, "Campaign deactivated successfully.", campaign);
   } catch (error) {
     return errReturned(res, error.message);
   }

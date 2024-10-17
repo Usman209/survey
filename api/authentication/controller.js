@@ -20,11 +20,16 @@ exports.login = async (req, res) => {
       return errReturned(res, error.message);
     }
 
-    const { cnic, password } = value; 
+    const { cnic, password } = value;
 
-    // Find user by CNIC instead of email
+    // Find user by CNIC
     const user = await User.findOne({ cnic });
     if (!user) return errReturned(res, "User Not Found");
+
+    // Check if user is inactive
+    if (user.status === 'INACTIVE') {
+      return errReturned(res, "User is inactive and cannot log in.");
+    }
 
     const validPass = await bcrypt.compare(password, user.password);
     if (!validPass) return errReturned(res, "Invalid Password");
@@ -44,8 +49,8 @@ exports.login = async (req, res) => {
 
     res.header("auth-token", token).json({ token, user: response });
   } catch (error) {
-    console.log('error from here ===', error);
-    return errReturned(res, error);
+    console.log('Error from here ===', error);
+    return errReturned(res, error.message || "An error occurred");
   }
 };
 
