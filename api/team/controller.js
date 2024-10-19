@@ -248,7 +248,6 @@ const generateUniqueTeamName = async (uc) => {
 
 
 
-
 exports.getTeamDetailsByUserId = async (req, res) => {
   try {
     const { id } = req.params; // Get user ID from request parameters
@@ -263,21 +262,16 @@ exports.getTeamDetailsByUserId = async (req, res) => {
     let teamDetails;
 
     if (user.role === 'FLW') {
-      // If the user is an FLW, find teams where this FLW is part of
       teamDetails = await Team.find({ flws: id })
-        .populate('ucmo aic') // Populate UCMO and AIC details
-        .select('territory teamName ucmo aic');
-
+        .populate('ucmo aic')
+        .select('territory teamName ucmo aic flws');
     } else if (user.role === 'AIC') {
-      // If the user is an AIC, find teams where this AIC is assigned
       teamDetails = await Team.find({ aic: id })
-        .populate('flws ucmo') // Populate FLWs and UCMO details
+        .populate('flws ucmo')
         .select('territory teamName flws ucmo');
-
     } else if (user.role === 'UCMO') {
-      // If the user is a UCMO, find teams where this UCMO is assigned
       teamDetails = await Team.find({ ucmo: id })
-        .populate('flws aic') // Populate FLWs and AIC details
+        .populate('flws aic')
         .select('territory teamName flws aic');
     } else {
       return errReturned(res, "User role not recognized.");
@@ -287,8 +281,8 @@ exports.getTeamDetailsByUserId = async (req, res) => {
       return errReturned(res, "No teams found for this user.");
     }
 
-    // Process to create distinct UCs with UCMO or AIC details and team names
     const response = [];
+
     const ucMap = new Map();
 
     teamDetails.forEach(team => {
@@ -297,17 +291,101 @@ exports.getTeamDetailsByUserId = async (req, res) => {
       if (!ucMap.has(ucKey)) {
         ucMap.set(ucKey, {
           uc: ucKey,
-          ucmo: team.ucmo || null, // Include UCMO details if available
-          aic: team.aic || null,    // Include AIC details if available
-          teamNames: []
+          territory: team.territory, // Store territory details
+          teamNames: [],
+          aics: [],
+          flws: [], // Initialize FLWs array
+          ucmo: null // Initialize UCMO
         });
       }
+
+      // Add team name
       ucMap.get(ucKey).teamNames.push(team.teamName);
+
+      // If role is FLW, include UCMO and AIC details
+      if (user.role === 'FLW') {
+        if (team.ucmo) {
+          ucMap.get(ucKey).ucmo = {
+            _id: team.ucmo._id,
+            firstName: team.ucmo.firstName,
+            lastName: team.ucmo.lastName,
+            email: team.ucmo.email,
+            phone: team.ucmo.phone,
+            status: team.ucmo.status,
+            role: team.ucmo.role,
+          };
+        }
+
+        if (team.aic) {
+          ucMap.get(ucKey).aics.push({
+            _id: team.aic._id,
+            firstName: team.aic.firstName,
+            lastName: team.aic.lastName,
+            email: team.aic.email,
+            cnic: team.aic.cnic,
+            phone: team.aic.phone,
+            status: team.aic.status,
+            role: team.aic.role,
+          });
+        }
+      }
+
+      // Handle AIC role
+      if (user.role === 'AIC') {
+        if (team.ucmo) {
+          ucMap.get(ucKey).ucmo = {
+            _id: team.ucmo._id,
+            firstName: team.ucmo.firstName,
+            lastName: team.ucmo.lastName,
+            email: team.ucmo.email,
+            phone: team.ucmo.phone,
+            status: team.ucmo.status,
+            role: team.ucmo.role,
+          };
+        }
+
+        // Add FLWs to the array
+        if (team.flws && team.flws.length > 0) {
+          team.flws.forEach(fl => {
+            ucMap.get(ucKey).flws.push({
+              _id: fl._id,
+              firstName: fl.firstName,
+              lastName: fl.lastName,
+              email: fl.email,
+              phone: fl.phone,
+              status: fl.status,
+              role: fl.role,
+            });
+          });
+        }
+      }
+
+      // Handle UCMO role
+      if (user.role === 'UCMO' && team.aic) {
+        ucMap.get(ucKey).aics.push({
+          _id: team.aic._id,
+          firstName: team.aic.firstName,
+          lastName: team.aic.lastName,
+          email: team.aic.email,
+          cnic: team.aic.cnic,
+          phone: team.aic.phone,
+          status: team.aic.status,
+          role: team.aic.role,
+        });
+      }
     });
 
-    // Convert map to array
+    // Convert the map to an array and flatten the structure
     ucMap.forEach(value => {
-      response.push(value);
+      const flatResponse = {
+        uc: value.uc,
+        territory: value.territory,
+        teamNames: value.teamNames,
+        aics: value.aics,
+        ucmo: value.ucmo, // Include UCMO details
+        flws: value.flws   // Include FLWs array
+      };
+      response.push(flatResponse);
     });
 
     return sendResponse(res, 200, "Team details fetched successfully.", response);
