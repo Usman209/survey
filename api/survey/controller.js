@@ -43,3 +43,29 @@ exports.syncCollectedData = async (req, res) => {
         return errReturned(res, error.message);
     }
 };
+
+
+
+
+
+
+// [
+//     8|my-app  |   {
+//     8|my-app  |     date: '2024-10-20T17:14:01.514Z',
+//     8|my-app  |     campaign: {
+//     8|my-app  |       UC: 'UC1',
+//     8|my-app  |       UCMOName: 'پیٹھی    ',
+//     8|my-app  |       AICName: 'ینوراما سنٹر کے باہر ملنے والے لڈو  کی\n ',
+//     8|my-app  |       teamNumber: '2565',
+//     8|my-app  |       campaignName: 'Camp 40',
+//     8|my-app  |       day: '2',
+//     8|my-app  |       date: '2024-10-20',
+//     8|my-app  |       areaName: 'پیٹھی',
+//     8|my-app  |       campaignType: 'NID'
+//     8|my-app  |     },
+//     8|my-app  |     userData: { id: 1 },
+//     8|my-app  |     data: { houses: [], schools: [], streetChildren: [Array] }
+//     8|my-app  |   }
+//     8|my-app  | ]
+//    long
+    
