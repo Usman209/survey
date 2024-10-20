@@ -46,10 +46,14 @@ exports.syncCollectedData = async (req, res) => {
             const submittedAtString = submittedAtDate.toISOString().split('T')[0]; // Get date in YYYY-MM-DD format
 
             // Find if this submission already exists for the given date
-            const existingSubmission = collectedData.submissions.find(submission => {
+            const existingSubmissionsForDate = collectedData.submissions.filter(submission => {
                 const submissionDateStr = submission.submittedAt.toISOString().split('T')[0]; // Compare just the date
-                return submissionDateStr === submittedAtString &&
-                       JSON.stringify(submission.data) === JSON.stringify(data);
+                return submissionDateStr === submittedAtString;
+            });
+
+            // If a submission for this date exists, check if data is the same
+            const existingSubmission = existingSubmissionsForDate.find(submission => {
+                return JSON.stringify(submission.data) === JSON.stringify(data);
             });
 
             // If it exists, skip adding it
@@ -57,11 +61,17 @@ exports.syncCollectedData = async (req, res) => {
                 // Add the submission to the submissions array
                 collectedData.submissions.push({ data, submittedAt: submittedAtDate });
 
-                // Update the submissionIndex for quick access by date
+                // Initialize submissionIndex if it doesn't exist for the submitted date
+                if (!collectedData.submissionIndex) {
+                    collectedData.submissionIndex = {};
+                }
+
                 if (!collectedData.submissionIndex[submittedAtString]) {
                     collectedData.submissionIndex[submittedAtString] = [];
                 }
-                collectedData.submissionIndex[submittedAtString].push(collectedData.submissions.length - 1); // Store index of new submission
+                
+                // Store index of new submission
+                collectedData.submissionIndex[submittedAtString].push(collectedData.submissions.length - 1); 
             }
 
             // Save the record
