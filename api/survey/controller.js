@@ -14,7 +14,7 @@ exports.syncCollectedData = async (req, res) => {
             const flwId = userData.id; // Extract flwId from userData
             const { teamNumber, campaignName } = campaign; // Extracting from campaign object
 
-            // Find the existing record or create a new one based on flwId and campaignName
+            // Find the existing record based on flwId and campaignName
             let collectedData = await CollectedData.findOne({ flwId, 'campaignDetails.campaignName': campaignName });
 
             if (!collectedData) {
@@ -36,17 +36,23 @@ exports.syncCollectedData = async (req, res) => {
                 });
             }
 
-            // Check if the submission for the same date already exists
+            // Check if the submission for the same date and data already exists
             const submittedAtDate = new Date(date);
             const existingSubmission = collectedData.submissions.find(submission => {
                 return submission.submittedAt.toISOString() === submittedAtDate.toISOString() &&
                        JSON.stringify(submission.data) === JSON.stringify(data);
             });
 
-            // If it exists, skip adding it
-            if (!existingSubmission) {
-                collectedData.submissions.push({ data, submittedAt: submittedAtDate });
+            // If it exists and has the same userId, skip adding it
+            if (existingSubmission) {
+                const userExists = existingSubmission.userData && existingSubmission.userData.id === userData.id;
+                if (userExists) {
+                    continue; // Skip adding if the same userId exists
+                }
             }
+
+            // If data is different or the userId is different, add a new submission
+            collectedData.submissions.push({ data, submittedAt: submittedAtDate, userData });
 
             // Save the record
             await collectedData.save();
@@ -57,8 +63,6 @@ exports.syncCollectedData = async (req, res) => {
         return errReturned(res, error.message);
     }
 };
-
-
 
 
 
