@@ -121,26 +121,34 @@ exports.updatePassword = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   try {
-    const userId = req?.params?.id 
+    const userId = req?.params?.id;
 
     const { error, value } = updateProfileSchemaValidator.validate(req.body, {
-      stripUnknown: true, 
-    });    if (error) {
+      stripUnknown: true,
+    });
+    if (error) {
       return errReturned(res, error.message);
     }
-    
+
+    // Check if a new password is provided
+    if (value.password) {
+      const salt = await bcrypt.genSalt(10);
+      value.password = await bcrypt.hash(value.password, salt);
+    }
 
     const profile = await findByIdAndUpdate({
       model: USER,
       id: userId,
       updateData: value,
     });
-    return sendResponse(res, EResponseCode.SUCCESS, "success", profile);
+
+    return sendResponse(res, EResponseCode.SUCCESS, "Profile updated successfully", profile);
   } catch (error) {
-    console.log(error);
-    errReturned(res, error);
+    console.error(error);
+    return errReturned(res, "An error occurred while updating the profile");
   }
 };
+
 
 exports.userDetail = async (req, res) => {
   try {

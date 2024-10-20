@@ -31,25 +31,30 @@ exports.login = async (req, res) => {
       return errReturned(res, "User is inactive and cannot log in.");
     }
 
-    
-
     const validPass = await bcrypt.compare(password, user.password);
-    if (!validPass) return errReturned(res, "Invalid Password");
 
+    // Prepare the response object
     let response = {
       id: user._id,
       firstName: user.firstName,
       lastName: user.lastName,
-      cnic: user.cnic, // Include CNIC in the response if needed
-      phone: user.contact, // Adjusted to use the correct field
-      role: user.role
+      cnic: user.cnic,
+      phone: user.contact,
+      role: user.role,
+      needsPasswordReset: user.isFirstLogin === undefined ? true : user.isFirstLogin 
     };
 
+
+
+    if (!validPass) return errReturned(res, "Invalid Password");
+
+    // Generate JWT token
     const token = jwt.sign(response, process.env.TOKEN_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN,
     });
 
     res.header("auth-token", token).json({ token, user: response });
+
   } catch (error) {
     console.log('Error from here ===', error);
     return errReturned(res, error.message || "An error occurred");
