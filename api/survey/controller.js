@@ -12,17 +12,15 @@ exports.syncCollectedData = async (req, res) => {
         for (const entry of collectedDataArray) {
             const { userData, data, campaign, date } = entry;
             const flwId = userData.id; // Extract flwId from userData
-            const teamId = ''; // Set this according to your logic for fetching teamId
             const { teamNumber, campaignName } = campaign; // Extracting from campaign object
 
-            // Find the existing record or create a new one based on flwId, teamId, and campaignName
-            let collectedData = await CollectedData.findOne({ flwId, teamId, 'campaignDetails.campaignName': campaignName });
+            // Find the existing record or create a new one based on flwId and campaignName
+            let collectedData = await CollectedData.findOne({ flwId, 'campaignDetails.campaignName': campaignName });
 
             if (!collectedData) {
                 // If no record exists, create a new one
                 collectedData = new CollectedData({ 
                     flwId, 
-                    teamId, 
                     submissions: [], 
                     campaignDetails: {
                         teamNumber,
@@ -59,6 +57,7 @@ exports.syncCollectedData = async (req, res) => {
         return errReturned(res, error.message);
     }
 };
+
 
 
 
