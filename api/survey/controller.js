@@ -3,23 +3,39 @@ const moment = require('moment'); // To handle date formatting
 const { sendResponse, errReturned } = require('../../lib/utils/dto');
 
 
-
 exports.syncCollectedData = async (req, res) => {
     try {
-
         console.log(req.body);
         
-        const collectedDataArray = req.body; // Assume this is the array of collected data from the mobile app
+        const collectedDataArray = req.body; // Array of collected data from the mobile app
 
         for (const entry of collectedDataArray) {
-            const { flwId, teamId, teamNumber, campaignName, data, date } = entry;
+            const { userData, data, campaign, date } = entry;
+            const flwId = userData.id; // Extract flwId from userData
+            const teamId = ''; // Set this according to your logic for fetching teamId
+            const { teamNumber, campaignName } = campaign; // Extracting from campaign object
 
-            // Find the existing record or create a new one based on teamId and campaignName
-            let collectedData = await CollectedData.findOne({ flwId, teamId, campaignName });
+            // Find the existing record or create a new one based on flwId, teamId, and campaignName
+            let collectedData = await CollectedData.findOne({ flwId, teamId, 'campaignDetails.campaignName': campaignName });
 
             if (!collectedData) {
                 // If no record exists, create a new one
-                collectedData = new CollectedData({ flwId, teamId, teamNumber, campaignName, submissions: [] });
+                collectedData = new CollectedData({ 
+                    flwId, 
+                    teamId, 
+                    submissions: [], 
+                    campaignDetails: {
+                        teamNumber,
+                        campaignName,
+                        UC: campaign.UC,
+                        UCMOName: campaign.UCMOName,
+                        AICName: campaign.AICName,
+                        day: campaign.day,
+                        date: campaign.date,
+                        areaName: campaign.areaName,
+                        campaignType: campaign.campaignType,
+                    }
+                });
             }
 
             // Check if the submission for the same date already exists
@@ -43,7 +59,6 @@ exports.syncCollectedData = async (req, res) => {
         return errReturned(res, error.message);
     }
 };
-
 
 
 
