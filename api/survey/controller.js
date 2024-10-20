@@ -14,14 +14,19 @@ exports.syncCollectedData = async (req, res) => {
             const flwId = userData.id; // Extract flwId from userData
             const { teamNumber, campaignName } = campaign; // Extracting from campaign object
 
-            // Find the existing record based on flwId and campaignName
-            let collectedData = await CollectedData.findOne({ flwId, 'campaignDetails.campaignName': campaignName });
+            // Find the existing record or create a new one based on flwId, campaignName, and teamNumber
+            let collectedData = await CollectedData.findOne({
+                flwId,
+                'campaignDetails.campaignName': campaignName,
+                'campaignDetails.teamNumber': teamNumber
+            });
 
             if (!collectedData) {
                 // If no record exists, create a new one
                 collectedData = new CollectedData({ 
                     flwId, 
                     submissions: [], 
+                    submissionIndex: {}, // Initialize submissionIndex
                     campaignDetails: {
                         teamNumber,
                         campaignName,
@@ -36,23 +41,28 @@ exports.syncCollectedData = async (req, res) => {
                 });
             }
 
-            // Check if the submission for the same date and data already exists
+            // Check if the submission for the same date already exists
             const submittedAtDate = new Date(date);
+            const submittedAtString = submittedAtDate.toISOString().split('T')[0]; // Get date in YYYY-MM-DD format
+
+            // Find if this submission already exists for the given date
             const existingSubmission = collectedData.submissions.find(submission => {
-                return submission.submittedAt.toISOString() === submittedAtDate.toISOString() &&
+                const submissionDateStr = submission.submittedAt.toISOString().split('T')[0]; // Compare just the date
+                return submissionDateStr === submittedAtString &&
                        JSON.stringify(submission.data) === JSON.stringify(data);
             });
 
-            // If it exists and has the same userId, skip adding it
-            if (existingSubmission) {
-                const userExists = existingSubmission.userData && existingSubmission.userData.id === userData.id;
-                if (userExists) {
-                    continue; // Skip adding if the same userId exists
-                }
-            }
+            // If it exists, skip adding it
+            if (!existingSubmission) {
+                // Add the submission to the submissions array
+                collectedData.submissions.push({ data, submittedAt: submittedAtDate });
 
-            // If data is different or the userId is different, add a new submission
-            collectedData.submissions.push({ data, submittedAt: submittedAtDate, userData });
+                // Update the submissionIndex for quick access by date
+                if (!collectedData.submissionIndex[submittedAtString]) {
+                    collectedData.submissionIndex[submittedAtString] = [];
+                }
+                collectedData.submissionIndex[submittedAtString].push(collectedData.submissions.length - 1); // Store index of new submission
+            }
 
             // Save the record
             await collectedData.save();
@@ -63,7 +73,6 @@ exports.syncCollectedData = async (req, res) => {
         return errReturned(res, error.message);
     }
 };
-
 
 
 
