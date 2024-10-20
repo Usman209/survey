@@ -108,7 +108,7 @@ exports.updatePassword = async (req, res) => {
     await findByIdAndUpdate({
       model: USER,
       id: req.params.id,
-      updateData: { password: hashedPassword },
+      updateData: {  isFirstLogin: false,password: hashedPassword },
     });
 
     return sendResponse(res, EResponseCode.SUCCESS, "Password has been updated");
