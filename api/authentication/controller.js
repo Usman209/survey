@@ -41,7 +41,9 @@ exports.login = async (req, res) => {
       cnic: user.cnic,
       phone: user.contact,
       role: user.role,
-      needsPasswordReset: user.isFirstLogin === undefined ? true : user.isFirstLogin 
+      needsPasswordReset : user.isFirstLogin === undefined ? 'true' : (user.isFirstLogin ? 'true' : 'false')
+
+
     };
 
 
