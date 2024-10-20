@@ -9,8 +9,9 @@ const { EUserRole } = require("../../lib/utils/enum");
 
 router
   .route("/")
-  .get( controller.userList)
-  .patch( controller.updatePassword);
+  .get(controller.userList)
+
+  router.route("/updatepass/:id").put(controller.updatePassword)
 
   router
   .route("/flws")

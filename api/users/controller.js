@@ -91,36 +91,33 @@ exports.userList = async (req, res) => {
 
 exports.updatePassword = async (req, res) => {
   try {
+    
     const { error, value } = updatePasswordSchemaValidator.validate(req.body);
     if (error) return errReturned(res, error.message);
 
     const salt = await bcrypt.genSalt(10);
-    let hashedPassword = await bcrypt.hash(value.newpassword, salt);
+    const hashedPassword = await bcrypt.hash(value.newpassword, salt);
 
-    let user = await findById({ model: USER, id: req?.user?.id });
+    const user = await USER.findById(req.params.id);
 
-    const validPass = await bcrypt.compare(value.oldpassword, user.password);
-    if (!validPass) return errReturned(res, "Invalid Password");
 
-    let status = await findByIdAndUpdate({
+    // Check if the user exists
+    if (!user) return errReturned(res, "User  not found");
+
+    // Directly update the password without validating the old password
+    await findByIdAndUpdate({
       model: USER,
-      id: req?.user?.id,
+      id: req.params.id,
       updateData: { password: hashedPassword },
     });
 
-    if (status["nModified"])
-      return sendResponse(res, EResponseCode.NOTFOUND, "Already updated");
-
-    return sendResponse(
-      res,
-      EResponseCode.SUCCESS,
-      "Password has been updated"
-    );
+    return sendResponse(res, EResponseCode.SUCCESS, "Password has been updated");
   } catch (error) {
-    console.log(error);
-    errReturned(res, error);
+    console.error(error);
+    return errReturned(res, "An error occurred while updating the password");
   }
 };
+
 
 exports.updateProfile = async (req, res) => {
   try {

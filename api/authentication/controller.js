@@ -31,6 +31,8 @@ exports.login = async (req, res) => {
       return errReturned(res, "User is inactive and cannot log in.");
     }
 
+    
+
     const validPass = await bcrypt.compare(password, user.password);
     if (!validPass) return errReturned(res, "Invalid Password");
 
