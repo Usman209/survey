@@ -6,6 +6,9 @@ const { sendResponse, errReturned } = require('../../lib/utils/dto');
 
 exports.syncCollectedData = async (req, res) => {
     try {
+
+        console.log(req.body);
+        
         const collectedDataArray = req.body; // Assume this is the array of collected data from the mobile app
 
         for (const entry of collectedDataArray) {
