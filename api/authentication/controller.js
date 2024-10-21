@@ -93,7 +93,8 @@ exports.register = async (req, res) => {
     if (emailExist) return errReturned(res, "Email Already Exists");
 
     // Generate password from CNIC and phone
-    const generatedPassword = `${cnic.slice(0, 5)}${phone.slice(-3)}`;
+    // const generatedPassword = `${cnic.slice(0, 5)}${phone.slice(-3)}`;
+    const generatedPassword = "polio123";
     value.password = await bcrypt.hash(generatedPassword, await bcrypt.genSalt(10));
 
     const user = new User(value);
