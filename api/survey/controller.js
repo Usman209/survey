@@ -202,9 +202,7 @@ const countRevisitedHouses = (collectedDataArray) => {
     collectedDataArray.forEach(submission => {
         submission.submissions.forEach(entry => {
             entry.data.houses.forEach(house => {
-                
                 if (house.houseType === 'locked') {
-
                     const houseNumber = house.houseNumber;
                     const timestamp = new Date(house.addedAt).getTime(); // Get timestamp in milliseconds
 
@@ -233,92 +231,165 @@ const countRevisitedHouses = (collectedDataArray) => {
         });
     });
 
-    // Prepare the final output
-    const revisitedHouses = Object.keys(housesMap).map(key => ({
-        houseNumber: key,
-        revisits: housesMap[key].revisits,
-    }));
+    // Return only the count of revisited houses
+    const revisitedHouseCount = Object.values(housesMap).reduce((total, house) => {
+        return total + (house.revisits > 0 ? 1 : 0); // Count houses with at least one revisit
+    }, 0);
 
-    return {
-        count: revisitedHouses.length,
-        revisitedHouses,
-    };
+    return revisitedHouseCount;
 };
 
-// Example usage within your existing code
-exports.getCollectedData = async (req, res) => {
-    try {
-        const { startDate, endDate } = req.query;
 
-        // Date parsing and fetching collected data remains the same
-        // ...
+const getRefusalHouseStats = (collectedDataArray) => {
+    const refusalStats = {
+        totalRefusalCount: 0,
+        refusalReasons: {}
+    };
 
-        // Call the function to count revisited houses
-        const revisitedHouseData = countRevisitedHouses(collectedDataArray);
+    const countedHouses = new Set(); // To track counted house numbers
 
-        // Prepare the response
-        return res.status(200).json({
-            revisitedHouseCount: revisitedHouseData.count,
-            revisitedHouses: revisitedHouseData.revisitedHouses,
+    collectedDataArray.forEach(collectedData => {
+        collectedData.submissions.forEach(submission => {
+            submission.data.houses.forEach(house => {
+                if (house.houseType === 'refusal') {
+                    const houseNumber = house.houseNumber; // Use house number to avoid duplicates
+
+                    // Only count if this house number hasn't been counted yet
+                    if (!countedHouses.has(houseNumber)) {
+                        countedHouses.add(houseNumber); // Mark this house number as counted
+
+                        // Increment the total refusal count
+                        refusalStats.totalRefusalCount += 1;
+
+                        // Get the refusal reason
+                        const reason = house.refusalReason || 'unknown';
+
+                        // Update the refusalReasons object
+                        if (!refusalStats.refusalReasons[reason]) {
+                            refusalStats.refusalReasons[reason] = 0;
+                        }
+                        refusalStats.refusalReasons[reason] += 1;
+                    }
+                }
+            });
         });
+    });
+
+    return refusalStats;
+};
+
+
+const getTotalVaccinatedStudents = (collectedDataArray) => {
+    const vaccinatedStudentsSet = new Set(); // To track distinct schools
+    let totalVaccinatedStudents = 0;
+
+    collectedDataArray.forEach(collectedData => {
+        collectedData.submissions.forEach(submission => {
+            submission.data.schools.forEach(school => {
+                const schoolId = school.id; // Assuming each school has a unique ID
+
+                // Only add to the total if this school ID hasn't been counted yet
+                if (!vaccinatedStudentsSet.has(schoolId)) {
+                    vaccinatedStudentsSet.add(schoolId); // Mark this school as counted
+
+                    // Convert polioVaccinatedStudents to a number and add to the total
+                    const vaccinatedCount = parseInt(school.polioVaccinatedStudents, 10) || 0; // Default to 0 if NaN
+                    totalVaccinatedStudents += vaccinatedCount;
+                }
+            });
+        });
+    });
+
+    return totalVaccinatedStudents;
+};
+
+
+const getTotalStreetChildrenCount = (collectedDataArray) => {
+    try {
+        let totalStreetChildrenCount = 0;
+
+        // Iterate through each submission in the collected data
+        collectedDataArray.forEach(data => {
+            data.submissions.forEach(submission => {
+                // Sum the count of street children
+                submission.data.streetChildren.forEach(streetChild => {
+                    totalStreetChildrenCount += streetChild.count || 0; // Ensure count is treated as a number
+                });
+            });
+        });
+
+        return totalStreetChildrenCount; // Return the total count
     } catch (error) {
-        return res.status(500).json({ message: error.message });
+        console.error(error);
+        return null; // Return null in case of error
     }
 };
 
 
 
+function getTotalGuestChildrenCount(collectedDataArray) {
+    let totalGuestChildren = 0;
+    const processedHouseIds = new Set(); // To track unique house IDs
 
-// exports.getCollectedData = async (req, res) => {
-//     try {
-//         const { startDate, endDate } = req.query;
+    collectedDataArray.forEach(data => {
+        if (data.submissions) {
+            data.submissions.forEach(submission => {
+                if (submission.data && Array.isArray(submission.data.houses)) {
+                    submission.data.houses.forEach(house => {
+                        // Check if the house has already been processed
+                        if (house.houseType === 'house' && !processedHouseIds.has(house.id)) {
+                            processedHouseIds.add(house.id); // Mark this house as processed
+                            
+                            if (Array.isArray(house.families)) {
+                                house.families.forEach(family => {
+                                    // Convert string value to number and add to total
+                                    const availableGuestChildrenCount = Number(family.availableGuestChildrenCount) || 0; 
+                                    totalGuestChildren += availableGuestChildrenCount; // Add to total
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+        }
+    });
 
-//         // Parse the dates or default to the current date
-//         const today = new Date();
-//         const currentDate = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-//         const start = startDate ? new Date(startDate) : new Date(currentDate);
-//         const end = endDate ? new Date(endDate) : new Date(currentDate);
-
-//         // Set time to the end of the day for end date
-//         end.setHours(23, 59, 59, 999);
-
-//         // Fetch collected data for the specified date range
-//         const collectedDataArray = await CollectedData.find({
-//             'campaignDetails.date': {
-//                 $gte: start.toISOString().split('T')[0], // Start date
-//                 $lte: end.toISOString().split('T')[0]    // End date
-//             }
-//         });
-
-//         // Define cutoff time (8:30 AM)
-//         const cutoffTime = new Date();
-//         cutoffTime.setHours(8, 30, 0, 0); // Set time to 8:30 AM
-
-//         // Call the reusable function to count teams
-//         const { beforeCutoffCount, afterCutoffCount } = countTeamsByCutoff(collectedDataArray);
-
-//         const uniqueLockedHouseCount = countUniqueLockedHouses(collectedDataArray);
-//         const visitsAfter2PMCount = countVisitsAfter2PM(collectedDataArray);
-//         const uniqueNAChildrenCount = countUniqueNAChildren(collectedDataArray);
-
-//         // Check for NA house revisits
-//         const revisitedHouses = checkNAHouseRevisited({ submissions: collectedDataArray });
-
-//         // Prepare the response with updated labels
-//         return res.status(200).json({
-//             "before 8:30": beforeCutoffCount,
-//             "after 8:30": afterCutoffCount,
-//             "uniqueLockedHouseCount": uniqueLockedHouseCount,
-//             "visitsAfter2PMCount": visitsAfter2PMCount,
-//             "uniqueNAChildrenCount": uniqueNAChildrenCount,
-//             "revisitedHouses": revisitedHouses // Add revisited houses to the response
-//         });
-//     } catch (error) {
-//         return res.status(500).json({ message: error.message });
-//     }
-// };
+    return totalGuestChildren;
+}
 
 
+function getTotalAvailableChildrenCount(collectedDataArray) {
+    let totalAvailableChildren = 0;
+    const processedHouseIds = new Set(); // To track unique house IDs
+
+    collectedDataArray.forEach((data) => {
+        if (data.submissions) {
+            data.submissions.forEach((submission) => {
+                if (submission.data && Array.isArray(submission.data.houses)) {
+                    submission.data.houses.forEach((house) => {
+                        // Check if the house has already been processed
+                        if (house.houseType === 'house' && !processedHouseIds.has(house.id)) {
+                            processedHouseIds.add(house.id); // Mark this house as 
+                                                  
+                            if (Array.isArray(house.families)) {
+                                house.families.forEach((family) => {
+                                    // Convert string values to numbers
+                                    const availableChildren0to11 = Number(family.availableChildren0to11) || 0;
+                                    const availableChildren11to59 = Number(family.availableChildren11to59) || 0;
+
+                                    // Add available children counts
+                                    totalAvailableChildren += availableChildren0to11 + availableChildren11to59;
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+        }
+    });
+
+    return totalAvailableChildren;
+}
 
 exports.getCollectedData = async (req, res) => {
     try {
@@ -358,7 +429,23 @@ exports.getCollectedData = async (req, res) => {
 
         const revisitedHouseData = countRevisitedHouses(collectedDataArray);
 
+        const refusalStats = getRefusalHouseStats(collectedDataArray);
 
+
+// total : sum of these 4 
+
+        const school = getTotalVaccinatedStudents(collectedDataArray)
+
+        const street = getTotalStreetChildrenCount(collectedDataArray)
+
+        const guestChild= getTotalGuestChildrenCount(collectedDataArray)
+        const avaibleChild= getTotalAvailableChildrenCount(collectedDataArray)
+
+        const total = school + street + guestChild + avaibleChild;
+
+
+
+    
 
         // Prepare the response with updated labels
         return res.status(200).json({
@@ -367,9 +454,13 @@ exports.getCollectedData = async (req, res) => {
             "uniqueLockedHouseCount": uniqueLockedHouseCount,
             "visitsAfter2PMCount":visitsAfter2PMCount,
             "uniqueNAChildrenCount":uniqueNAChildrenCount,
-            "revisitedHouseData":revisitedHouseData
-
-            
+            "revisitedHouseData":revisitedHouseData,
+            "refusalStats":refusalStats,
+            "school":school,
+            "street":street,
+            "guestChild":guestChild,
+            "avaibleChild":avaibleChild,
+            "total":total  
         });
     } catch (error) {
         return res.status(500).json({ message: error.message });
