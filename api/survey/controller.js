@@ -103,7 +103,18 @@ const processSubmission = async (collectedData, data, date) => {
 
 const handleFLW = async (entry) => {
     const { userData, data, campaign, date } = entry;
-    const flwId = userData.id; // Extract flwId from userData
+
+    if (!userData) {
+        throw new Error('User data is missing in entry: ' + JSON.stringify(entry));
+    }
+    if (!data) {
+        throw new Error('Data is missing in entry: ' + JSON.stringify(entry));
+    }
+    if (!campaign) {
+        throw new Error('Campaign is missing in entry: ' + JSON.stringify(entry));
+    }
+
+    const flwId = userData?.id; // Extract flwId from userData
 
     const { teamNumber, campaignName, day } = campaign; // Extracting from campaign object
 
