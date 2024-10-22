@@ -1,4 +1,6 @@
 const bcrypt = require("bcryptjs");
+const Team = require('../../lib/schema/team.schema');
+
 const USER = require("../../lib/schema/users.schema");
 // const TERRITORY = require("../../lib/schema/territory.schema")
 
@@ -163,16 +165,58 @@ exports.userDetail = async (req, res) => {
 
 exports.getAllFLWs = async (req, res) => {
   try {
-    const flws = await USER.find({ role: 'FLW' }, "firstName lastName email role cnic phone status"); // Adjust the projection as needed
-    return sendResponse(res, EResponseCode.SUCCESS, "FLW list", flws);
+    // Fetch all FLWs
+    const flws = await USER.find({ role: 'FLW' }, "firstName lastName email role cnic phone status createdBy updatedBy")
+      .populate('createdBy', 'firstName lastName cnic role')
+      .populate('updatedBy', 'firstName lastName cnic role');
+
+    console.log("Fetched FLWs:", flws); // Log fetched FLWs
+
+    // Fetch all teams at once
+    const teams = await Team.find().populate('aic', 'firstName lastName cnic')
+      .populate('ucmo', 'firstName lastName cnic');
+
+    const enrichedFLWs = await Promise.all(flws.map(async (flw) => {
+      console.log("Processing FLW:", flw); // Log each FLW being processed
+
+      // Find teams where the FLW is referenced in the flws array
+      const matchingTeams = teams.filter(team => team.flws.some(flwId => flwId.toString() === flw._id.toString()));
+
+      console.log("Matching Teams:", matchingTeams); // Log matching teams
+
+      return {
+        ...flw.toObject(),
+        teams: matchingTeams.map(team => ({
+          teamName: team.teamName,
+          ucmoDetails: team.ucmo ? {
+            firstName: team.ucmo.firstName,
+            lastName: team.ucmo.lastName,
+            cnic: team.ucmo.cnic
+          } : null,
+          aicDetails: team.aic ? {
+            firstName: team.aic.firstName,
+            lastName: team.aic.lastName,
+            cnic: team.aic.cnic
+          } : null,
+        })) || [], // Return an empty array if no teams match
+      };
+    }));
+
+    console.log("Enriched FLWs:", enrichedFLWs); // Log the enriched FLWs
+
+    return sendResponse(res, EResponseCode.SUCCESS, "FLW list", enrichedFLWs);
   } catch (err) {
+    console.error("Error fetching FLWs:", err); // Log any errors
     errReturned(res, err);
   }
 };
 
+
 exports.getAllUCMOs = async (req, res) => {
   try {
-    const ucmos = await USER.find({ role: 'UCMO' }, "firstName lastName email role cnic  phone status"); // Adjust the projection as needed
+    const ucmos = await USER.find({ role: 'UCMO' }, "firstName lastName email role cnic  phone status")
+    .populate('createdBy', 'firstName lastName cnic role')
+    .populate('updatedBy', 'firstName lastName cnic role');
     return sendResponse(res, EResponseCode.SUCCESS, "UCMO list", ucmos);
   } catch (err) {
     errReturned(res, err);
@@ -182,7 +226,9 @@ exports.getAllUCMOs = async (req, res) => {
 
 exports.getAllAdmins = async (req, res) => {
   try {
-    const ucmos = await USER.find({ role: 'ADMIN' }, "firstName lastName email role cnic  phone status"); // Adjust the projection as needed
+    const ucmos = await USER.find({ role: 'ADMIN' }, "firstName lastName email role cnic  phone status")
+    .populate('createdBy', 'firstName lastName cnic role')
+    .populate('updatedBy', 'firstName lastName cnic role');
     return sendResponse(res, EResponseCode.SUCCESS, "Admin list", ucmos);
   } catch (err) {
     errReturned(res, err);
@@ -191,12 +237,47 @@ exports.getAllAdmins = async (req, res) => {
 
 exports.getAllAICs = async (req, res) => {
   try {
-    const aics = await USER.find({ role: 'AIC' }, "firstName lastName email role cnic phone status"); // Adjust the projection as needed
-    return sendResponse(res, EResponseCode.SUCCESS, "AIC list", aics);
+    // Fetch all AICs
+    const aics = await USER.find({ role: 'AIC' }, "firstName lastName email role cnic phone status createdBy updatedBy")
+      .populate('createdBy', 'firstName lastName cnic role')
+      .populate('updatedBy', 'firstName lastName cnic role');
+
+    console.log("Fetched AICs:", aics); // Log fetched AICs
+
+    // Fetch all teams at once
+    const teams = await Team.find().populate('ucmo', 'firstName lastName cnic');
+
+    const enrichedAICs = await Promise.all(aics.map(async (aic) => {
+      console.log("Processing AIC:", aic); // Log each AIC being processed
+
+      // Find teams where the AIC is referenced
+      const matchingTeams = teams.filter(team => team.aic && team.aic.toString() === aic._id.toString());
+      
+      // If multiple matches, you can choose to handle them as needed
+      const teamDetails = matchingTeams.length > 0 ? matchingTeams[0] : null; // Example: take the first match
+
+      console.log("Matching Teams:", matchingTeams); // Log matching teams
+
+      return {
+        ...aic.toObject(),
+        teamName: teamDetails ? teamDetails.teamName : 'No team assigned',
+        ucmoDetails: teamDetails && teamDetails.ucmo ? {
+          firstName: teamDetails.ucmo.firstName,
+          lastName: teamDetails.ucmo.lastName,
+          cnic: teamDetails.ucmo.cnic
+        } : null,
+      };
+    }));
+
+    console.log("Enriched AICs:", enrichedAICs); // Log the enriched AICs
+
+    return sendResponse(res, EResponseCode.SUCCESS, "AIC list", enrichedAICs);
   } catch (err) {
+    console.error("Error fetching AICs:", err); // Log any errors
     errReturned(res, err);
   }
 };
+
 
 exports.getUsersByRole = async (req, res) => {
   try {
@@ -208,7 +289,9 @@ exports.getUsersByRole = async (req, res) => {
       return sendResponse(res, EResponseCode.BADREQUEST, "Invalid role provided");
     }
 
-    const users = await USER.find({ role }, "firstName lastName email role cnic phone status"); // Adjust the projection as needed
+    const users = await USER.find({ role }, "firstName lastName email role cnic phone status")
+    .populate('createdBy', 'firstName lastName cnic role')
+    .populate('updatedBy', 'firstName lastName cnic role');
     return sendResponse(res, EResponseCode.SUCCESS, `${role} list`, users);
   } catch (err) {
     errReturned(res, err);
@@ -219,7 +302,9 @@ exports.getUsersByRole = async (req, res) => {
 exports.getAICsByUCMO = async (req, res) => {
   try {
     const { ucmoId } = req.params;
-    const aics = await USER.find({ role: 'AIC', ucmo: ucmoId }, "firstName lastName email cnic phone role status");
+    const aics = await USER.find({ role: 'AIC', ucmo: ucmoId }, "firstName lastName email cnic phone role status")
+    .populate('createdBy', 'firstName lastName cnic role')
+    .populate('updatedBy', 'firstName lastName cnic role');
     return sendResponse(res, EResponseCode.SUCCESS, "AICs under UCMO", aics);
   } catch (err) {
     errReturned(res, err);
@@ -229,7 +314,9 @@ exports.getAICsByUCMO = async (req, res) => {
 exports.getFLWsByAIC = async (req, res) => {
   try {
     const { aicId } = req.params;
-    const flws = await USER.find({ role: 'FLW', aic: aicId }, "firstName lastName email cnic phone role status");
+    const flws = await USER.find({ role: 'FLW', aic: aicId }, "firstName lastName email cnic phone role status")
+    .populate('createdBy', 'firstName lastName cnic role')
+      .populate('updatedBy', 'firstName lastName cnic role');
     return sendResponse(res, EResponseCode.SUCCESS, "FLWs under AIC", flws);
   } catch (err) {
     errReturned(res, err);
