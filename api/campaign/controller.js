@@ -13,12 +13,33 @@ exports.createCampaign = async (req, res) => {
 
 exports.getAllCampaigns = async (req, res) => {
   try {
-    const campaigns = await Campaign.find(); 
-    return sendResponse(res, 200, "Campaigns fetched successfully.", campaigns);
+    // Get pagination parameters from the query
+    const page = parseInt(req.query.page) || 1; // Default to page 1
+    const limit = parseInt(req.query.limit) || 10; // Default to 10 items per page
+    const skip = (page - 1) * limit;
+
+    const campaigns = await Campaign.find()
+      .populate({
+        path: 'createdBy',
+        select: 'firstName cnic role'
+      })
+      .skip(skip) // Skip the previous pages
+      .limit(limit); // Limit to the specified number of items
+
+    const totalCampaigns = await Campaign.countDocuments(); // Count total documents
+    const totalPages = Math.ceil(totalCampaigns / limit); // Calculate total pages
+
+    return sendResponse(res, 200, "Campaigns fetched successfully.", {
+      campaigns,
+      currentPage: page,
+      totalPages,
+      totalItems: totalCampaigns,
+    });
   } catch (error) {
     return errReturned(res, error.message);
   }
 };
+
 
 exports.getCampaignById = async (req, res) => {
   try {
