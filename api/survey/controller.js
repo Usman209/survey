@@ -7,7 +7,7 @@ const { sendResponse, errReturned } = require('../../lib/utils/dto');
 
 exports.syncCollectedData = async (req, res) => {
     try {
-        console.log(JSON.stringify(req.body));        
+        console.log(JSON.stringify(req.body, null, 2));        
         
         const collectedDataArray = req.body; // Array of collected data from the mobile app
 
@@ -16,24 +16,34 @@ exports.syncCollectedData = async (req, res) => {
             return res.status(400).json({ message: 'Data is empty. Please add survey data first before syncing.' });
         }
 
-        // Extract UCMOCampaign data
+        // Extract the first UCMOCampaign entry
         const ucmoCampaign = req.body[0].UCMOCampaign;
 
+        if (!Array.isArray(ucmoCampaign) || ucmoCampaign.length === 0) {
+            return res.status(400).json({ message: 'UCMOCampaign is empty. Please add campaign data first.' });
+        }
+
+        // Assuming you want to use the first campaign entry
+        const campaignDetails = ucmoCampaign[0];
+
         for (const entry of collectedDataArray) {
-            const { userData, data, campaign, date } = entry;
+            const { userData, data, date } = entry;
             const flwId = userData.id; // Extract flwId from userData
-            const { teamNumber, campaignName, day } = campaign; // Extracting from campaign object
+
+            // Extract campaign details from the UCMO campaign
+            const { teamNumber, UCMOName, UCMOId } = campaignDetails; // Get from the first campaign entry
 
             // Validate the day value
+            const day = campaignDetails.workDay; // Assume workDay is used as day
             if (!day || typeof day !== 'string') {
                 console.error('Invalid campaign day:', day);
                 return res.status(400).json({ message: 'Invalid campaign day value.' });
             }
 
-            // Find the existing record or create a new one based on flwId, campaignName, and teamNumber
+            // Find the existing record or create a new one based on flwId, UCMOName, and teamNumber
             let collectedData = await CollectedData.findOne({
                 flwId,
-                'campaignDetails.campaignName': campaignName,
+                'campaignDetails.campaignName': UCMOName, // Use UCMOName instead of campaignName
                 'campaignDetails.teamNumber': teamNumber
             });
 
@@ -45,14 +55,14 @@ exports.syncCollectedData = async (req, res) => {
                     submissionIndex: {}, // Initialize submissionIndex
                     campaignDetails: {
                         teamNumber,
-                        campaignName,
-                        UC: campaign.UC,
-                        UCMOName: ucmoCampaign[0].UCMOName, // Use the first campaign name
-                        AICName: campaign.AICName,
+                        campaignName: UCMOName, // Use UCMOName for campaign name
+                        UC: campaignDetails.unionCouncil, // Example: use unionCouncil from campaign
+                        UCMOName,
+                        UCMOId,
                         day, // Ensure this is a valid string
-                        date: campaign.date,
-                        areaName: campaign.areaName,
-                        campaignType: campaign.campaignType,
+                        date: date, // Use the date from the entry
+                        areaName: campaignDetails.village, // Example: use village for area name
+                        campaignType: campaignDetails.populationType // Example: use populationType for campaign type
                     }
                 });
             }
@@ -100,6 +110,7 @@ exports.syncCollectedData = async (req, res) => {
         return errReturned(res, error.message);
     }
 };
+
 
 
 // Helper function to count teams based on submission time
