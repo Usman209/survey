@@ -63,6 +63,6 @@ app.get("/", (req, res) => {
 require("./routes")(app);
 let server = require("http").createServer(app);
 
-server.listen(PORT, () =>
-  
-);
+server.listen(PORT, () => {
+  console.log(`Server is listening on port ${PORT}`);
+});
