@@ -4,12 +4,15 @@ const { sendResponse, errReturned } = require('../../lib/utils/dto');
 
 
 
-const handleAICUCMO = async (entry) => {
-    const { userData, data, date } = entry;
-    const flwId = userData.id; // Extract flwId from userData
+// Helper function for AIC and UCMO roles
+const handleAICUCMO = async (collectedDataArray) => {
+    // Check if the collected data array is empty
+    if (!Array.isArray(collectedDataArray) || collectedDataArray.length === 0) {
+        throw new Error('Data is empty. Please add survey data first before syncing.');
+    }
 
     // Extract the first UCMOCampaign entry
-    const ucmoCampaign = entry.UCMOCampaign;
+    const ucmoCampaign = collectedDataArray[0].UCMOCampaign;
 
     if (!Array.isArray(ucmoCampaign) || ucmoCampaign.length === 0) {
         throw new Error('UCMOCampaign is empty. Please add campaign data first.');
@@ -19,41 +22,46 @@ const handleAICUCMO = async (entry) => {
     const campaignDetails = ucmoCampaign[0];
 
     // Extracting campaign details
-    const { teamNumber, campaignName, day } = campaignDetails; 
+    const { teamNumber, UCMOName, UCMOId, workDay } = campaignDetails; // Get workDay
 
     // Validate the day value
-    if (!day || typeof day !== 'string' || day.trim() === '') {
-        console.error('Invalid campaign day:', day);
+    if (!workDay || typeof workDay !== 'string') {
+        console.error('Invalid campaign day:', workDay);
         throw new Error('Invalid campaign day value. It must be a non-empty string.');
     }
 
-    // Find or create collected data record
-    let collectedData = await CollectedData.findOne({
-        flwId,
-        'campaignDetails.campaignName': campaignName,
-        'campaignDetails.teamNumber': teamNumber
-    });
+    for (const entry of collectedDataArray) {
+        const { userData, data, date } = entry;
+        const flwId = userData.id; // Extract flwId from userData
 
-    if (!collectedData) {
-        collectedData = new CollectedData({ 
-            flwId, 
-            submissions: [], 
-            submissionIndex: {},
-            campaignDetails: {
-                teamNumber,
-                campaignName,
-                UC: campaignDetails.UC,
-                UCMOName: campaignDetails.UCMOName,
-                AICName: campaignDetails.AICName,
-                day,
-                date: campaignDetails.date,
-                areaName: campaignDetails.areaName,
-                campaignType: campaignDetails.campaignType,
-            }
+        // Find or create collected data record
+        let collectedData = await CollectedData.findOne({
+            flwId,
+            'campaignDetails.campaignName': campaignDetails.campaignName,
+            'campaignDetails.teamNumber': teamNumber
         });
-    }
 
-    await processSubmission(collectedData, data, date);
+        if (!collectedData) {
+            collectedData = new CollectedData({ 
+                flwId, 
+                submissions: [], 
+                submissionIndex: {},
+                campaignDetails: {
+                    teamNumber,
+                    campaignName: campaignDetails.campaignName,
+                    UC: campaignDetails.UC,
+                    UCMOName,
+                    UCMOId,
+                    day: workDay, // Ensure this is the correct value
+                    date: campaignDetails.date,
+                    areaName: campaignDetails.areaName,
+                    campaignType: campaignDetails.campaignType,
+                }
+            });
+        }
+
+        await processSubmission(collectedData, data, date);
+    }
 };
 
 // Function to process submissions
