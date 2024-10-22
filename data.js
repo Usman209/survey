@@ -37,7 +37,7 @@ mongoose.connect(DB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
       }));
 
       await UC.insertMany(formattedData);
-      console.log("Data inserted successfully!");
+      
     } catch (error) {
       console.error("Error inserting data:", error);
     } finally {

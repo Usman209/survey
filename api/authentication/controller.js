@@ -58,7 +58,7 @@ exports.login = async (req, res) => {
     res.header("auth-token", token).json({ token, user: response });
 
   } catch (error) {
-    console.log('Error from here ===', error);
+    
     return errReturned(res, error.message || "An error occurred");
   }
 };
@@ -67,21 +67,21 @@ exports.login = async (req, res) => {
 // Logout route
 exports.logout = async (req, res) => {
 
-  console.log(' header ', req.header('auth-token'));
+  
 
   try {
     res.setHeader("auth-token", "");
 
     res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
-    console.log('error ', error);
+    
     return errReturned(res, error);
   }
 };
 
 
 exports.register = async (req, res) => {
-  console.log(req.body);
+  
   try {
     const { error, value } = userRegisterSchemaValidator.validate(req.body);
     if (error) {
@@ -99,7 +99,7 @@ exports.register = async (req, res) => {
 
     const user = new User(value);
     const data = await user.save();
-    console.log(data);
+    
 
     return sendResponse(res, EResponseCode.SUCCESS, "Please check your email for verification.!", user);
   } catch (error) {
@@ -111,7 +111,7 @@ exports.register = async (req, res) => {
 exports.resetPassword = async (req, res) => {
   try {
 
-    console.log('from here ', req.body);
+    
     const token = req.header('auth-token')
 
 
@@ -153,7 +153,7 @@ exports.resetPassword = async (req, res) => {
       message: 'User password is reset successuflly'
     })
   } catch (err) {
-    console.log(err);
+    
 
     res.json({ success: false, error: err.message })
   }
@@ -164,7 +164,7 @@ exports.resetPassword = async (req, res) => {
 exports.forgotPassword = async (req, res) => {
 
   const user_email = req.body.email;
-  console.log(req.body);
+  
 
   try {
 
@@ -197,12 +197,12 @@ exports.forgotPassword = async (req, res) => {
   } catch (error) {
 
 
-    console.log('error is ', error);
+    
   }
 }
 
 exports.verify = async (req, res) => {
-  console.log(req.body);
+  
 
   try {
 
@@ -218,13 +218,13 @@ exports.verfiyEmail = async (req, res) => {
 
   try {
 
-    console.log(req.body);
+    
     const token = req.header('auth-token')
 
 
     //  let payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url"));
 
-    //  console.log('code from here ',payload.id);
+    //  
 
     if (!token) {
       return res.json({

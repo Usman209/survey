@@ -170,19 +170,15 @@ exports.getAllFLWs = async (req, res) => {
       .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role');
 
-    console.log("Fetched FLWs:", flws); // Log fetched FLWs
-
     // Fetch all teams at once
     const teams = await Team.find().populate('aic', 'firstName lastName cnic')
       .populate('ucmo', 'firstName lastName cnic');
 
     const enrichedFLWs = await Promise.all(flws.map(async (flw) => {
-      console.log("Processing FLW:", flw); // Log each FLW being processed
+      
 
       // Find teams where the FLW is referenced in the flws array
       const matchingTeams = teams.filter(team => team.flws.some(flwId => flwId.toString() === flw._id.toString()));
-
-      console.log("Matching Teams:", matchingTeams); // Log matching teams
 
       return {
         ...flw.toObject(),
@@ -202,7 +198,6 @@ exports.getAllFLWs = async (req, res) => {
       };
     }));
 
-    console.log("Enriched FLWs:", enrichedFLWs); // Log the enriched FLWs
 
     return sendResponse(res, EResponseCode.SUCCESS, "FLW list", enrichedFLWs);
   } catch (err) {
@@ -242,21 +237,17 @@ exports.getAllAICs = async (req, res) => {
       .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role');
 
-    console.log("Fetched AICs:", aics); // Log fetched AICs
-
     // Fetch all teams at once
     const teams = await Team.find().populate('ucmo', 'firstName lastName cnic');
 
     const enrichedAICs = await Promise.all(aics.map(async (aic) => {
-      console.log("Processing AIC:", aic); // Log each AIC being processed
+      
 
       // Find teams where the AIC is referenced
       const matchingTeams = teams.filter(team => team.aic && team.aic.toString() === aic._id.toString());
       
       // If multiple matches, you can choose to handle them as needed
       const teamDetails = matchingTeams.length > 0 ? matchingTeams[0] : null; // Example: take the first match
-
-      console.log("Matching Teams:", matchingTeams); // Log matching teams
 
       return {
         ...aic.toObject(),
@@ -268,8 +259,6 @@ exports.getAllAICs = async (req, res) => {
         } : null,
       };
     }));
-
-    console.log("Enriched AICs:", enrichedAICs); // Log the enriched AICs
 
     return sendResponse(res, EResponseCode.SUCCESS, "AIC list", enrichedAICs);
   } catch (err) {

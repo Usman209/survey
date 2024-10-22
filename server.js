@@ -16,7 +16,7 @@ require("dotenv").config();
 
 const { HOST, PORT,SESS_SECRET } = require("./config/config");
 
-// console.log = function() {} // remove logs from all over projects
+// 
 let { dbConnection } = require("./lib/utils/connection.js");
 
 app.set('view engine', 'ejs');
@@ -34,10 +34,10 @@ app.use(session({
 }));
 
 dbConnection()
-  .then(() => console.log('DB connected'))
+  .then(() => 
   .catch((err) => {
-    console.log("error in connection", err);
-    // console.log(`Data Base Connection Failed, ${err.message}`);
+    
+    // 
   });
 
 app.use(express.urlencoded({ extended: false }));
@@ -56,7 +56,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 app.get("/", (req, res) => {
-  console.log("Port ", PORT);
+  
   res.send("Api Running");
 });
 
@@ -64,5 +64,5 @@ require("./routes")(app);
 let server = require("http").createServer(app);
 
 server.listen(PORT, () =>
-  console.log(`Server started on http://${HOST}:${PORT}`)
+  
 );
