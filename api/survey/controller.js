@@ -7,7 +7,7 @@ const { sendResponse, errReturned } = require('../../lib/utils/dto');
 
 exports.syncCollectedData = async (req, res) => {
     try {
-        console.log(JSON.stringify(req.body[0].UCMOCampaign, null, 2));        
+        console.log(JSON.stringify(req.body));        
         
         const collectedDataArray = req.body; // Array of collected data from the mobile app
 
