@@ -4,104 +4,149 @@ const { sendResponse, errReturned } = require('../../lib/utils/dto');
 
 
 
+const handleAICUCMO = async (entry) => {
+    const { userData, data, date } = entry;
+    const flwId = userData.id; // Extract flwId from userData
+
+    // Extract the first UCMOCampaign entry
+    const ucmoCampaign = entry.UCMOCampaign;
+
+    if (!Array.isArray(ucmoCampaign) || ucmoCampaign.length === 0) {
+        throw new Error('UCMOCampaign is empty. Please add campaign data first.');
+    }
+
+    // Assuming you want to use the first campaign entry
+    const campaignDetails = ucmoCampaign[0];
+
+    const { teamNumber, campaignName, day } = campaignDetails; // Extracting from campaign object
+
+    // Validate the day value
+    if (!day || typeof day !== 'string') {
+        throw new Error('Invalid campaign day value.');
+    }
+
+    // Find or create collected data record
+    let collectedData = await CollectedData.findOne({
+        flwId,
+        'campaignDetails.campaignName': campaignName,
+        'campaignDetails.teamNumber': teamNumber
+    });
+
+    if (!collectedData) {
+        collectedData = new CollectedData({ 
+            flwId, 
+            submissions: [], 
+            submissionIndex: {},
+            campaignDetails: {
+                teamNumber,
+                campaignName,
+                UC: campaignDetails.UC,
+                UCMOName: campaignDetails.UCMOName,
+                AICName: campaignDetails.AICName,
+                day,
+                date: campaignDetails.date,
+                areaName: campaignDetails.areaName,
+                campaignType: campaignDetails.campaignType,
+            }
+        });
+    }
+
+    await processSubmission(collectedData, data, date);
+};
+
+const handleFLW = async (entry) => {
+    const { userData, data, campaign, date } = entry;
+    const flwId = userData.id; // Extract flwId from userData
+
+    const { teamNumber, campaignName, day } = campaign; // Extracting from campaign object
+
+    // Validate the day value
+    if (!day || typeof day !== 'string') {
+        throw new Error('Invalid campaign day value.');
+    }
+
+    // Find or create collected data record
+    let collectedData = await CollectedData.findOne({
+        flwId,
+        'campaignDetails.campaignName': campaignName,
+        'campaignDetails.teamNumber': teamNumber
+    });
+
+    if (!collectedData) {
+        collectedData = new CollectedData({ 
+            flwId, 
+            submissions: [], 
+            submissionIndex: {},
+            campaignDetails: {
+                teamNumber,
+                campaignName,
+                UC: campaign.UC,
+                UCMOName: campaign.UCMOName,
+                AICName: campaign.AICName,
+                day,
+                date: campaign.date,
+                areaName: campaign.areaName,
+                campaignType: campaign.campaignType,
+            }
+        });
+    }
+
+    await processSubmission(collectedData, data, date);
+};
+
+
+const processSubmission = async (collectedData, data, date) => {
+    const submittedAtDate = new Date(date);
+    const submittedAtString = submittedAtDate.toISOString().split('T')[0];
+
+    const existingSubmissionsForDate = collectedData.submissions.filter(submission => {
+        const submissionDateStr = submission.submittedAt.toISOString().split('T')[0];
+        return submissionDateStr === submittedAtString;
+    });
+
+    const existingSubmission = existingSubmissionsForDate.find(submission => {
+        return JSON.stringify(submission.data) === JSON.stringify(data);
+    });
+
+    if (!existingSubmission) {
+        collectedData.submissions.push({ data, submittedAt: submittedAtDate });
+
+        if (!collectedData.submissionIndex) {
+            collectedData.submissionIndex = {};
+        }
+
+        if (!collectedData.submissionIndex[submittedAtString]) {
+            collectedData.submissionIndex[submittedAtString] = [];
+        }
+
+        collectedData.submissionIndex[submittedAtString].push(collectedData.submissions.length - 1);
+    }
+
+    await collectedData.save();
+};
+
+
+
 
 exports.syncCollectedData = async (req, res) => {
     try {
-        console.log(JSON.stringify(req.body, null, 2));        
-        
         const collectedDataArray = req.body; // Array of collected data from the mobile app
 
-        // Check if the collected data array is empty
         if (!Array.isArray(collectedDataArray) || collectedDataArray.length === 0) {
             return res.status(400).json({ message: 'Data is empty. Please add survey data first before syncing.' });
         }
 
-        // Extract the first UCMOCampaign entry
-        const ucmoCampaign = req.body[0].UCMOCampaign;
-
-        if (!Array.isArray(ucmoCampaign) || ucmoCampaign.length === 0) {
-            return res.status(400).json({ message: 'UCMOCampaign is empty. Please add campaign data first.' });
-        }
-
-        // Assuming you want to use the first campaign entry
-        const campaignDetails = ucmoCampaign[0];
-
         for (const entry of collectedDataArray) {
-            const { userData, data, date } = entry;
-            const flwId = userData.id; // Extract flwId from userData
+            const { userData } = entry;
+            const role = userData.role;
 
-            // Extract campaign details from the UCMO campaign
-            const { teamNumber, UCMOName, UCMOId } = campaignDetails; // Get from the first campaign entry
-
-            // Validate the day value
-            const day = campaignDetails.workDay; // Assume workDay is used as day
-            if (!day || typeof day !== 'string') {
-                console.error('Invalid campaign day:', day);
-                return res.status(400).json({ message: 'Invalid campaign day value.' });
+            if (role === 'AIC' || role === 'UCMO') {
+                await handleAICUCMO(entry);
+            } else if (role === 'FLW') {
+                await handleFLW(entry);
+            } else {
+                return res.status(400).json({ message: 'Invalid user role.' });
             }
-
-            // Find the existing record or create a new one based on flwId, UCMOName, and teamNumber
-            let collectedData = await CollectedData.findOne({
-                flwId,
-                'campaignDetails.campaignName': UCMOName, // Use UCMOName instead of campaignName
-                'campaignDetails.teamNumber': teamNumber
-            });
-
-            if (!collectedData) {
-                // If no record exists, create a new one
-                collectedData = new CollectedData({ 
-                    flwId, 
-                    submissions: [], 
-                    submissionIndex: {}, // Initialize submissionIndex
-                    campaignDetails: {
-                        teamNumber,
-                        campaignName: UCMOName, // Use UCMOName for campaign name
-                        UC: campaignDetails.unionCouncil, // Example: use unionCouncil from campaign
-                        UCMOName,
-                        UCMOId,
-                        day, // Ensure this is a valid string
-                        date: date, // Use the date from the entry
-                        areaName: campaignDetails.village, // Example: use village for area name
-                        campaignType: campaignDetails.populationType // Example: use populationType for campaign type
-                    }
-                });
-            }
-
-            // Check if the submission for the same date already exists
-            const submittedAtDate = new Date(date);
-            const submittedAtString = submittedAtDate.toISOString().split('T')[0]; // Get date in YYYY-MM-DD format
-
-            // Find if this submission already exists for the given date
-            const existingSubmissionsForDate = collectedData.submissions.filter(submission => {
-                const submissionDateStr = submission.submittedAt.toISOString().split('T')[0]; // Compare just the date
-                return submissionDateStr === submittedAtString;
-            });
-
-            // If a submission for this date exists, check if data is the same
-            const existingSubmission = existingSubmissionsForDate.find(submission => {
-                return JSON.stringify(submission.data) === JSON.stringify(data);
-            });
-
-            // If it exists, skip adding it
-            if (!existingSubmission) {
-                // Add the submission to the submissions array
-                collectedData.submissions.push({ data, submittedAt: submittedAtDate });
-
-                // Initialize submissionIndex if it doesn't exist for the submitted date
-                if (!collectedData.submissionIndex) {
-                    collectedData.submissionIndex = {};
-                }
-
-                if (!collectedData.submissionIndex[submittedAtString]) {
-                    collectedData.submissionIndex[submittedAtString] = [];
-                }
-                
-                // Store index of new submission
-                collectedData.submissionIndex[submittedAtString].push(collectedData.submissions.length - 1); 
-            }
-
-            // Save the record
-            await collectedData.save();
         }
 
         return sendResponse(res, 200, "Data synced successfully.");
