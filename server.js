@@ -34,10 +34,10 @@ app.use(session({
 }));
 
 dbConnection()
-  .then(() => 
+  .then(() => console.log('DB connected'))
   .catch((err) => {
-    
-    // 
+    console.log("error in connection", err);
+    // console.log(`Data Base Connection Failed, ${err.message}`);
   });
 
 app.use(express.urlencoded({ extended: false }));
