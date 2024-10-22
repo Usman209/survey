@@ -7,7 +7,6 @@ const { sendResponse, errReturned } = require('../../lib/utils/dto');
 
 exports.syncCollectedData = async (req, res) => {
     try {
-        
         console.log(JSON.stringify(req.body[0].UCMOCampaign, null, 2));        
         
         const collectedDataArray = req.body; // Array of collected data from the mobile app
@@ -16,6 +15,9 @@ exports.syncCollectedData = async (req, res) => {
         if (!Array.isArray(collectedDataArray) || collectedDataArray.length === 0) {
             return res.status(400).json({ message: 'Data is empty. Please add survey data first before syncing.' });
         }
+
+        // Extract UCMOCampaign data
+        const ucmoCampaign = req.body[0].UCMOCampaign;
 
         for (const entry of collectedDataArray) {
             const { userData, data, campaign, date } = entry;
@@ -45,7 +47,7 @@ exports.syncCollectedData = async (req, res) => {
                         teamNumber,
                         campaignName,
                         UC: campaign.UC,
-                        UCMOName: campaign.UCMOName,
+                        UCMOName: ucmoCampaign[0].UCMOName, // Use the first campaign name
                         AICName: campaign.AICName,
                         day, // Ensure this is a valid string
                         date: campaign.date,
