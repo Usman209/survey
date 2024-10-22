@@ -149,27 +149,28 @@ exports.syncCollectedData = async (req, res) => {
     try {
         const collectedDataArray = req.body; // Array of collected data from the mobile app
 
+        // Check if the collected data array is empty
         if (!Array.isArray(collectedDataArray) || collectedDataArray.length === 0) {
             return res.status(400).json({ message: 'Data is empty. Please add survey data first before syncing.' });
         }
 
-        for (const entry of collectedDataArray) {
-            const { userData } = entry;
-            const role = userData.role;
+        // Log the incoming data for debugging
+        console.log('Collected Data Array:', JSON.stringify(collectedDataArray, null, 2));
 
-            if (role === 'AIC' || role === 'UCMO') {
-                await handleAICUCMO(entry);
-            } else if (role === 'FLW') {
-                await handleFLW(entry);
-            } else {
-                return res.status(400).json({ message: 'Invalid user role.' });
-            }
+        const userRole = collectedDataArray[0].userData.role; // Assuming role is in userData
+
+        if (userRole === 'AIC' || userRole === 'UCMO') {
+            await handleAICUCMO(collectedDataArray);
+        } else if (userRole === 'FLW') {
+            await handleFLW(collectedDataArray);
+        } else {
+            return res.status(400).json({ message: 'Invalid user role.' });
         }
 
         return sendResponse(res, 200, "Data synced successfully.");
     } catch (error) {
         console.error('Error syncing data:', error);
-        return errReturned(res, error.message);
+        return res.status(500).json({ message: error.message });
     }
 };
 
