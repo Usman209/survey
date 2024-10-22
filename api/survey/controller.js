@@ -18,11 +18,13 @@ const handleAICUCMO = async (entry) => {
     // Assuming you want to use the first campaign entry
     const campaignDetails = ucmoCampaign[0];
 
-    const { teamNumber, campaignName, day } = campaignDetails; // Extracting from campaign object
+    // Extracting campaign details
+    const { teamNumber, campaignName, day } = campaignDetails; 
 
     // Validate the day value
-    if (!day || typeof day !== 'string') {
-        throw new Error('Invalid campaign day value.');
+    if (!day || typeof day !== 'string' || day.trim() === '') {
+        console.error('Invalid campaign day:', day);
+        throw new Error('Invalid campaign day value. It must be a non-empty string.');
     }
 
     // Find or create collected data record
@@ -52,6 +54,43 @@ const handleAICUCMO = async (entry) => {
     }
 
     await processSubmission(collectedData, data, date);
+};
+
+// Function to process submissions
+const processSubmission = async (collectedData, data, date) => {
+    const submittedAtDate = new Date(date);
+    const submittedAtString = submittedAtDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+    // Check for existing submission
+    const existingSubmissionsForDate = collectedData.submissions.filter(submission => {
+        const submissionDateStr = submission.submittedAt.toISOString().split('T')[0];
+        return submissionDateStr === submittedAtString;
+    });
+
+    // Check if the data is the same
+    const existingSubmission = existingSubmissionsForDate.find(submission => {
+        return JSON.stringify(submission.data) === JSON.stringify(data);
+    });
+
+    // If it exists, skip adding it
+    if (!existingSubmission) {
+        collectedData.submissions.push({ data, submittedAt: submittedAtDate });
+
+        // Initialize submissionIndex if it doesn't exist
+        if (!collectedData.submissionIndex) {
+            collectedData.submissionIndex = {};
+        }
+
+        if (!collectedData.submissionIndex[submittedAtString]) {
+            collectedData.submissionIndex[submittedAtString] = [];
+        }
+        
+        // Store index of new submission
+        collectedData.submissionIndex[submittedAtString].push(collectedData.submissions.length - 1); 
+    }
+
+    // Save the record
+    await collectedData.save();
 };
 
 const handleFLW = async (entry) => {
@@ -94,36 +133,6 @@ const handleFLW = async (entry) => {
     await processSubmission(collectedData, data, date);
 };
 
-
-const processSubmission = async (collectedData, data, date) => {
-    const submittedAtDate = new Date(date);
-    const submittedAtString = submittedAtDate.toISOString().split('T')[0];
-
-    const existingSubmissionsForDate = collectedData.submissions.filter(submission => {
-        const submissionDateStr = submission.submittedAt.toISOString().split('T')[0];
-        return submissionDateStr === submittedAtString;
-    });
-
-    const existingSubmission = existingSubmissionsForDate.find(submission => {
-        return JSON.stringify(submission.data) === JSON.stringify(data);
-    });
-
-    if (!existingSubmission) {
-        collectedData.submissions.push({ data, submittedAt: submittedAtDate });
-
-        if (!collectedData.submissionIndex) {
-            collectedData.submissionIndex = {};
-        }
-
-        if (!collectedData.submissionIndex[submittedAtString]) {
-            collectedData.submissionIndex[submittedAtString] = [];
-        }
-
-        collectedData.submissionIndex[submittedAtString].push(collectedData.submissions.length - 1);
-    }
-
-    await collectedData.save();
-};
 
 
 
