@@ -163,7 +163,7 @@ exports.userDetail = async (req, res) => {
 
 exports.getAllFLWs = async (req, res) => {
   try {
-    const flws = await USER.find({ role: 'FLW' }, "firstName email role cnic phone status"); // Adjust the projection as needed
+    const flws = await USER.find({ role: 'FLW' }, "firstName lastName email role cnic phone status"); // Adjust the projection as needed
     return sendResponse(res, EResponseCode.SUCCESS, "FLW list", flws);
   } catch (err) {
     errReturned(res, err);
@@ -172,7 +172,7 @@ exports.getAllFLWs = async (req, res) => {
 
 exports.getAllUCMOs = async (req, res) => {
   try {
-    const ucmos = await USER.find({ role: 'UCMO' }, "firstName email role cnic  phone status"); // Adjust the projection as needed
+    const ucmos = await USER.find({ role: 'UCMO' }, "firstName lastName email role cnic  phone status"); // Adjust the projection as needed
     return sendResponse(res, EResponseCode.SUCCESS, "UCMO list", ucmos);
   } catch (err) {
     errReturned(res, err);
@@ -182,7 +182,7 @@ exports.getAllUCMOs = async (req, res) => {
 
 exports.getAllAdmins = async (req, res) => {
   try {
-    const ucmos = await USER.find({ role: 'ADMIN' }, "firstName email role cnic  phone status"); // Adjust the projection as needed
+    const ucmos = await USER.find({ role: 'ADMIN' }, "firstName lastName email role cnic  phone status"); // Adjust the projection as needed
     return sendResponse(res, EResponseCode.SUCCESS, "Admin list", ucmos);
   } catch (err) {
     errReturned(res, err);
@@ -191,7 +191,7 @@ exports.getAllAdmins = async (req, res) => {
 
 exports.getAllAICs = async (req, res) => {
   try {
-    const aics = await USER.find({ role: 'AIC' }, "firstName email role cnic phone status"); // Adjust the projection as needed
+    const aics = await USER.find({ role: 'AIC' }, "firstName lastName email role cnic phone status"); // Adjust the projection as needed
     return sendResponse(res, EResponseCode.SUCCESS, "AIC list", aics);
   } catch (err) {
     errReturned(res, err);
@@ -208,7 +208,7 @@ exports.getUsersByRole = async (req, res) => {
       return sendResponse(res, EResponseCode.BADREQUEST, "Invalid role provided");
     }
 
-    const users = await USER.find({ role }, "firstName email role cnic phone status"); // Adjust the projection as needed
+    const users = await USER.find({ role }, "firstName lastName email role cnic phone status"); // Adjust the projection as needed
     return sendResponse(res, EResponseCode.SUCCESS, `${role} list`, users);
   } catch (err) {
     errReturned(res, err);
@@ -219,7 +219,7 @@ exports.getUsersByRole = async (req, res) => {
 exports.getAICsByUCMO = async (req, res) => {
   try {
     const { ucmoId } = req.params;
-    const aics = await USER.find({ role: 'AIC', ucmo: ucmoId }, "firstName email cnic phone role status");
+    const aics = await USER.find({ role: 'AIC', ucmo: ucmoId }, "firstName lastName email cnic phone role status");
     return sendResponse(res, EResponseCode.SUCCESS, "AICs under UCMO", aics);
   } catch (err) {
     errReturned(res, err);
@@ -229,7 +229,7 @@ exports.getAICsByUCMO = async (req, res) => {
 exports.getFLWsByAIC = async (req, res) => {
   try {
     const { aicId } = req.params;
-    const flws = await USER.find({ role: 'FLW', aic: aicId }, "firstName email cnic phone role status");
+    const flws = await USER.find({ role: 'FLW', aic: aicId }, "firstName lastName email cnic phone role status");
     return sendResponse(res, EResponseCode.SUCCESS, "FLWs under AIC", flws);
   } catch (err) {
     errReturned(res, err);
