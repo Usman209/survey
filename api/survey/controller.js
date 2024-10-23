@@ -11,7 +11,7 @@ const handleAICUCMO = async (collectedDataArray) => {
         throw new Error('Data is empty. Please add survey data first before syncing.');
     }
 
-    console.log(collectedDataArray);
+    // console.log(collectedDataArray);
     
 
     // Extract the first UCMOCampaign entry
