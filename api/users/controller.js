@@ -2,7 +2,9 @@ const bcrypt = require("bcryptjs");
 const Team = require('../../lib/schema/team.schema');
 
 const USER = require("../../lib/schema/users.schema");
-// const TERRITORY = require("../../lib/schema/territory.schema")
+
+
+const redisClient = require('../../config/redis'); // Adjust the path based on your file structure
 
 
 require("dotenv").config();
@@ -138,18 +140,48 @@ exports.updateProfile = async (req, res) => {
       value.password = await bcrypt.hash(value.password, salt);
     }
 
-    const profile = await findByIdAndUpdate({
+    // Fetch the current user role before the update
+    const currentUser = await USER.findById(userId).select('role');
+    const updatedProfile = await findByIdAndUpdate({
       model: USER,
       id: userId,
       updateData: value,
     });
 
-    return sendResponse(res, EResponseCode.SUCCESS, "Profile updated successfully", profile);
+    // Invalidate caches based on role change
+    if (currentUser.role !== updatedProfile.role) {
+      // If the role has changed, invalidate all caches
+      await redisClient.del('flw_list');
+      await redisClient.del('ucmo_list');
+      await redisClient.del('admin_list');
+      await redisClient.del('aic_list');
+    } else {
+      // If the role hasn't changed, only invalidate the specific cache
+      switch (updatedProfile.role) {
+        case 'FLW':
+          await redisClient.del('flw_list');
+          break;
+        case 'UCMO':
+          await redisClient.del('ucmo_list');
+          break;
+        case 'ADMIN':
+          await redisClient.del('admin_list');
+          break;
+        case 'AIC':
+          await redisClient.del('aic_list');
+          break;
+        default:
+          break; // No cache invalidation needed for other roles
+      }
+    }
+
+    return sendResponse(res, EResponseCode.SUCCESS, "Profile updated successfully", updatedProfile);
   } catch (error) {
     console.error(error);
     return errReturned(res, "An error occurred while updating the profile");
   }
 };
+
 
 
 exports.userDetail = async (req, res) => {
@@ -163,23 +195,25 @@ exports.userDetail = async (req, res) => {
 };
 
 
+// Get all FLWs
 exports.getAllFLWs = async (req, res) => {
   try {
-    // Fetch all FLWs
+    const cacheKey = 'flw_list';
+    const cachedFLWs = await redisClient.get(cacheKey);
+
+    if (cachedFLWs) {
+      return sendResponse(res, EResponseCode.SUCCESS, "FLW list", JSON.parse(cachedFLWs));
+    }
+
     const flws = await USER.find({ role: 'FLW' }, "firstName lastName email role cnic phone status createdBy updatedBy")
       .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role');
 
-    // Fetch all teams at once
     const teams = await Team.find().populate('aic', 'firstName lastName cnic')
       .populate('ucmo', 'firstName lastName cnic');
 
     const enrichedFLWs = await Promise.all(flws.map(async (flw) => {
-      
-
-      // Find teams where the FLW is referenced in the flws array
       const matchingTeams = teams.filter(team => team.flws.some(flwId => flwId.toString() === flw._id.toString()));
-
       return {
         ...flw.toObject(),
         teams: matchingTeams.map(team => ({
@@ -194,60 +228,79 @@ exports.getAllFLWs = async (req, res) => {
             lastName: team.aic.lastName,
             cnic: team.aic.cnic
           } : null,
-        })) || [], // Return an empty array if no teams match
+        })) || [],
       };
     }));
 
-
+    await redisClient.set(cacheKey, JSON.stringify(enrichedFLWs), 'EX', 3600); // Set expiration time in seconds
     return sendResponse(res, EResponseCode.SUCCESS, "FLW list", enrichedFLWs);
   } catch (err) {
-    console.error("Error fetching FLWs:", err); // Log any errors
-    errReturned(res, err);
+    console.error("Error fetching FLWs:", err);
+    return errReturned(res, err);
   }
 };
 
-
+// Get all UCMOs
 exports.getAllUCMOs = async (req, res) => {
   try {
-    const ucmos = await USER.find({ role: 'UCMO' }, "firstName lastName email role cnic  phone status")
-    .populate('createdBy', 'firstName lastName cnic role')
-    .populate('updatedBy', 'firstName lastName cnic role');
+    const cacheKey = 'ucmo_list';
+    const cachedUCMOs = await redisClient.get(cacheKey);
+
+    if (cachedUCMOs) {
+      return sendResponse(res, EResponseCode.SUCCESS, "UCMO list", JSON.parse(cachedUCMOs));
+    }
+
+    const ucmos = await USER.find({ role: 'UCMO' }, "firstName lastName email role cnic phone status")
+      .populate('createdBy', 'firstName lastName cnic role')
+      .populate('updatedBy', 'firstName lastName cnic role');
+
+    await redisClient.set(cacheKey, JSON.stringify(ucmos), 'EX', 3600);
     return sendResponse(res, EResponseCode.SUCCESS, "UCMO list", ucmos);
   } catch (err) {
-    errReturned(res, err);
+    return errReturned(res, err);
   }
 };
 
-
+// Get all Admins
 exports.getAllAdmins = async (req, res) => {
   try {
-    const ucmos = await USER.find({ role: 'ADMIN' }, "firstName lastName email role cnic  phone status")
-    .populate('createdBy', 'firstName lastName cnic role')
-    .populate('updatedBy', 'firstName lastName cnic role');
-    return sendResponse(res, EResponseCode.SUCCESS, "Admin list", ucmos);
+    const cacheKey = 'admin_list';
+    const cachedAdmins = await redisClient.get(cacheKey);
+
+    if (cachedAdmins) {
+      return sendResponse(res, EResponseCode.SUCCESS, "Admin list", JSON.parse(cachedAdmins));
+    }
+
+    const admins = await USER.find({ role: 'ADMIN' }, "firstName lastName email role cnic phone status")
+      .populate('createdBy', 'firstName lastName cnic role')
+      .populate('updatedBy', 'firstName lastName cnic role');
+
+    await redisClient.set(cacheKey, JSON.stringify(admins), 'EX', 3600);
+    return sendResponse(res, EResponseCode.SUCCESS, "Admin list", admins);
   } catch (err) {
-    errReturned(res, err);
+    return errReturned(res, err);
   }
 };
 
+// Get all AICs
 exports.getAllAICs = async (req, res) => {
   try {
-    // Fetch all AICs
+    const cacheKey = 'aic_list';
+    const cachedAICs = await redisClient.get(cacheKey);
+
+    if (cachedAICs) {
+      return sendResponse(res, EResponseCode.SUCCESS, "AIC list", JSON.parse(cachedAICs));
+    }
+
     const aics = await USER.find({ role: 'AIC' }, "firstName lastName email role cnic phone status createdBy updatedBy")
       .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role');
 
-    // Fetch all teams at once
     const teams = await Team.find().populate('ucmo', 'firstName lastName cnic');
 
     const enrichedAICs = await Promise.all(aics.map(async (aic) => {
-      
-
-      // Find teams where the AIC is referenced
       const matchingTeams = teams.filter(team => team.aic && team.aic.toString() === aic._id.toString());
-      
-      // If multiple matches, you can choose to handle them as needed
-      const teamDetails = matchingTeams.length > 0 ? matchingTeams[0] : null; // Example: take the first match
+      const teamDetails = matchingTeams.length > 0 ? matchingTeams[0] : null;
 
       return {
         ...aic.toObject(),
@@ -260,12 +313,51 @@ exports.getAllAICs = async (req, res) => {
       };
     }));
 
+    await redisClient.set(cacheKey, JSON.stringify(enrichedAICs), 'EX', 3600);
     return sendResponse(res, EResponseCode.SUCCESS, "AIC list", enrichedAICs);
   } catch (err) {
-    console.error("Error fetching AICs:", err); // Log any errors
-    errReturned(res, err);
+    console.error("Error fetching AICs:", err);
+    return errReturned(res, err);
   }
 };
+
+// Update Profile and Invalidate Cache
+exports.updateProfile = async (req, res) => {
+  try {
+    const userId = req?.params?.id;
+
+    const { error, value } = updateProfileSchemaValidator.validate(req.body, {
+      stripUnknown: true,
+    });
+    if (error) {
+      return errReturned(res, error.message);
+    }
+
+    // Check if a new password is provided
+    if (value.password) {
+      const salt = await bcrypt.genSalt(10);
+      value.password = await bcrypt.hash(value.password, salt);
+    }
+
+    const profile = await findByIdAndUpdate({
+      model: USER,
+      id: userId,
+      updateData: value,
+    });
+
+    // Invalidate caches for user lists
+    await redisClient.del('flw_list');
+    await redisClient.del('ucmo_list');
+    await redisClient.del('admin_list');
+    await redisClient.del('aic_list');
+
+    return sendResponse(res, EResponseCode.SUCCESS, "Profile updated successfully", profile);
+  } catch (error) {
+    console.error(error);
+    return errReturned(res, "An error occurred while updating the profile");
+  }
+};
+
 
 
 exports.getUsersByRole = async (req, res) => {
