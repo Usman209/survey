@@ -69,9 +69,13 @@ router.get('/all-flw', controller.getAllFLWs);
 
 
 router.get('/ucmo/:id', controller.getUsersByUcmo);
+router.get('/ucmoids/:id', controller.getUserIdsByUcmo);
+
 router.get('/ucmo/aics/:id', controller.getAICsByUCMO);
 
 router.get('/aic/:id', controller.getFLWsByAIC);
+router.get('/aicids/:id', controller.getFLWIdsByAIC);
+
 
 
 // router.patch('/assign-update-territory', controller.assignTerritoryToUser);
@@ -86,6 +90,5 @@ router.get('/inactive/:id', controller.deactivateUser);
 router.route('/:id')
 // .get( controller.userDetail)
 .get(controller.userProfile)
-.put(controller.updateProfile);
-
+.put(authenticateAndAuthorize(['UCMO', 'AIC', 'ADMIN']), controller.updateProfile);
 module.exports = router;

@@ -3,6 +3,7 @@ const USER = require('../../lib/schema/users.schema');
 const redisClient = require("../../config/redis");
 
 const { errReturned, sendResponse } = require('../../lib/utils/dto');
+const { getAllowedTeamIds } = require('../../lib/utils/checkresource');
 
 
 // Add FLW to a team
@@ -127,11 +128,29 @@ exports.getTeamById = async (req, res) => {
 
 exports.updateTeam = async (req, res) => {
   try {
+    const userRole = req.user.role; // Get user role from token
+    const userId = req.user.id; // Get user ID from token
+
+    let teamIdToUpdate;
+
+    if (userRole === 'AIC' || userRole === 'UCMO') {
+
+      const allowedIds = await getAllowedTeamIds(userRole, userId);
+
+       teamIdToUpdate = req.params.id;
+      if (!allowedIds.includes(teamIdToUpdate)) {
+        return errReturned(res, 'You are not allowed to edit this team.');
+      }
+
+
+    }
+
+
     const updateData = Object.fromEntries(
       Object.entries(req.body).filter(([_, value]) => value !== null)
     );
 
-    const updatedTeam = await Team.findByIdAndUpdate(req.params.id, updateData, { new: true });
+    const updatedTeam = await Team.findByIdAndUpdate(teamIdToUpdate, updateData, { new: true });
 
     if (!updatedTeam) {
       return errReturned(res, "Team not found.");
@@ -148,7 +167,7 @@ exports.deleteTeam = async (req, res) => {
   try {
     const deletedTeam = await Team.findByIdAndDelete(req.params.id);
     if (!deletedTeam) return errReturned(res, "Team not found.");
-    
+
     await redisClient.del('all_teams'); // Invalidate cache
     return sendResponse(res, 200, "Team deleted successfully.");
   } catch (error) {
@@ -192,7 +211,7 @@ exports.searchTeams = async (req, res) => {
     const { teamNumber, teamName, district, division, uc, tehsilOrTown, aic, ucmo } = req.query;
 
     const filter = {};
-    
+
     if (teamNumber) filter.teamNumber = teamNumber;
     if (teamName) filter.teamName = new RegExp(teamName, 'i');
     if (district) filter.territory = { ...filter.territory, district: new RegExp(district, 'i') };

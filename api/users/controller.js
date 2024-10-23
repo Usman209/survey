@@ -23,6 +23,7 @@ const {
   userRegisterSchemaValidator,
 } = require("../../lib/utils/sanitization");
 const { generateRandomEmail } = require("../../lib/utils/generateEmailAddress");
+const { getAllowedIdsForUser, isUserIdAllowed, checkUserAccess } = require("../../lib/utils/checkresource");
 
 exports.userProfile = async (req, res) => {
   try {
@@ -125,7 +126,17 @@ exports.updatePassword = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   try {
-    const userId = req?.params?.id;
+
+    const tokenUserId = req.user.id; // Get user ID from token
+    const userRole = req.user.role; // Get user role from token
+    const userId = req.params.id; // Get the user ID from request params
+
+    const { isSelf, isAllowed } = await checkUserAccess(tokenUserId, userRole, userId);
+
+    if (!isSelf && !isAllowed) {
+      return errReturned(res, 'You are not allowed to edit this user.');
+    }
+
 
     const { error, value } = updateProfileSchemaValidator.validate(req.body, {
       stripUnknown: true,
@@ -321,44 +332,6 @@ exports.getAllAICs = async (req, res) => {
   }
 };
 
-// Update Profile and Invalidate Cache
-exports.updateProfile = async (req, res) => {
-  try {
-    const userId = req?.params?.id;
-
-    const { error, value } = updateProfileSchemaValidator.validate(req.body, {
-      stripUnknown: true,
-    });
-    if (error) {
-      return errReturned(res, error.message);
-    }
-
-    // Check if a new password is provided
-    if (value.password) {
-      const salt = await bcrypt.genSalt(10);
-      value.password = await bcrypt.hash(value.password, salt);
-    }
-
-    const profile = await findByIdAndUpdate({
-      model: USER,
-      id: userId,
-      updateData: value,
-    });
-
-    // Invalidate caches for user lists
-    await redisClient.del('flw_list');
-    await redisClient.del('ucmo_list');
-    await redisClient.del('admin_list');
-    await redisClient.del('aic_list');
-
-    return sendResponse(res, EResponseCode.SUCCESS, "Profile updated successfully", profile);
-  } catch (error) {
-    console.error(error);
-    return errReturned(res, "An error occurred while updating the profile");
-  }
-};
-
-
 
 exports.getUsersByRole = async (req, res) => {
   try {
@@ -394,8 +367,8 @@ exports.getAICsByUCMO = async (req, res) => {
 
 exports.getFLWsByAIC = async (req, res) => {
   try {
-    const { aicId } = req.params;
-    const flws = await USER.find({ role: 'FLW', aic: aicId }, "firstName lastName email cnic phone role status")
+    const { id } = req.params;
+    const flws = await USER.find({ role: 'FLW', aic: id }, "firstName lastName email cnic phone role status")
     .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role');
     return sendResponse(res, EResponseCode.SUCCESS, "FLWs under AIC", flws);
@@ -403,6 +376,24 @@ exports.getFLWsByAIC = async (req, res) => {
     errReturned(res, err);
   }
 };
+
+
+exports.getFLWIdsByAIC = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find FLWs associated with the specified AIC
+    const flws = await USER.find({ role: 'FLW', aic: id }, "_id");
+
+    // Map the results to extract just the IDs
+    const flwIds = flws.map(fl => fl._id.toString());
+
+    return sendResponse(res, EResponseCode.SUCCESS, "FLW IDs under AIC", flwIds);
+  } catch (err) {
+    return errReturned(res, err.message);
+  }
+};
+
 
 
 exports.getUCMOWithAICsAndFLWs = async (req, res) => {
@@ -584,6 +575,34 @@ exports.getUsersByUcmo = async (req, res) => {
     return errReturned(res, error.message);
   }
 };
+
+exports.getUserIdsByUcmo = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find all AICs under the specified UCMO
+    const aics = await USER.find({ ucmo: id, role: "AIC" });
+
+    // Initialize an array to hold user IDs
+    const userIds = [];
+
+    // Add AIC IDs to the userIds array
+    for (const aic of aics) {
+      userIds.push(aic._id.toString());
+
+      // Fetch FLWs for each AIC and add their IDs to the array
+      const flws = await USER.find({ aic: aic._id, role: "FLW" });
+      flws.forEach(fl => userIds.push(fl._id.toString()));
+    }
+
+    return sendResponse(res, 200, "User IDs retrieved successfully.", userIds);
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+
+
+
 
 
 exports.getAicsByUcmo = async (req, res) => {
