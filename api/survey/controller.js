@@ -11,6 +11,9 @@ const handleAICUCMO = async (collectedDataArray) => {
         throw new Error('Data is empty. Please add survey data first before syncing.');
     }
 
+    console.log(collectedDataArray);
+    
+
     // Extract the first UCMOCampaign entry
     const ucmoCampaign = collectedDataArray[0].UCMOCampaign;
 
@@ -32,18 +35,18 @@ const handleAICUCMO = async (collectedDataArray) => {
 
     for (const entry of collectedDataArray) {
         const { userData, data, date } = entry;
-        const flwId = userData.id; // Extract flwId from userData
+        const userId = userData.id; // Extract userId from userData
 
         // Find or create collected data record
         let collectedData = await CollectedData.findOne({
-            flwId,
+            userId,
             'campaignDetails.campaignName': campaignDetails.campaignName,
             'campaignDetails.teamNumber': teamNumber
         });
 
         if (!collectedData) {
             collectedData = new CollectedData({ 
-                flwId, 
+                userId, 
                 submissions: [], 
                 submissionIndex: {},
                 campaignDetails: {
@@ -116,7 +119,7 @@ const handleFLW = async (entry, res) => {
             throw new Error('Campaign is missing in entry: ' + JSON.stringify(entry));
         }
 
-        const flwId = userData.id; // Extract flwId from userData
+        const userId = userData.id; // Extract userId from userData
         const { teamNumber, campaignName, day } = campaign; // Extracting from campaign object
 
         // Validate the day value
@@ -124,9 +127,9 @@ const handleFLW = async (entry, res) => {
             throw new Error('Invalid campaign day value in entry: ' + JSON.stringify(entry));
         }
 
-        // Find the existing record or create a new one based on flwId, campaignName, and teamNumber
+        // Find the existing record or create a new one based on userId, campaignName, and teamNumber
         let collectedData = await CollectedData.findOne({
-            flwId,
+            userId,
             'campaignDetails.campaignName': campaignName,
             'campaignDetails.teamNumber': teamNumber
         });
@@ -134,7 +137,7 @@ const handleFLW = async (entry, res) => {
         if (!collectedData) {
             // If no record exists, create a new one
             collectedData = new CollectedData({ 
-                flwId, 
+                userId, 
                 submissions: [], 
                 submissionIndex: {}, // Initialize submissionIndex
                 campaignDetails: {
@@ -264,7 +267,7 @@ const countVisitsAfter2PM = (collectedDataArray) => {
 
             // Check if the submission time is after 2 PM
             if (submittedAt.getHours() >= 14) {
-                visitsAfter2PM.add(entry.flwId); // Use flwId to track unique teams
+                visitsAfter2PM.add(entry.userId); // Use userId to track unique teams
             }
         }
     }
