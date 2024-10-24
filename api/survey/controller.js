@@ -2,6 +2,12 @@ const CollectedData = require('../../lib/schema/data.schema'); // Adjust the pat
 const moment = require('moment'); // To handle date formatting
 const { sendResponse, errReturned } = require('../../lib/utils/dto');
 
+const NodeCache = require('node-cache');
+const cron = require('cron');
+    
+    // Create a cache instance
+    const myCache = new NodeCache({ stdTTL: 900 }); // Cache for 15 minutes
+
 
 
 // Helper function for AIC and UCMO roles
@@ -197,6 +203,9 @@ const handleFLW = async (entry, res) => {
 
 exports.syncCollectedData = async (req, res) => {
     try {
+
+        console.log(req.body);
+        
         const collectedDataArray = req.body; // Array of collected data from the mobile app
 
         // Check if the collected data array is empty
@@ -521,78 +530,165 @@ function getTotalAvailableChildrenCount(collectedDataArray) {
     return totalAvailableChildren;
 }
 
-exports.getCollectedData = async (req, res) => {
-    try {
-        const { startDate, endDate } = req.query;
+// exports.getCollectedData = async (req, res) => {
+//     try {
+//         const { startDate, endDate } = req.query;
 
-        // Parse the dates or default to the current date
-        const today = new Date();
-        const currentDate = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-        const start = startDate ? new Date(startDate) : new Date(currentDate);
-        const end = endDate ? new Date(endDate) : new Date(currentDate);
+//         // Parse the dates or default to the current date
+//         const today = new Date();
+//         const currentDate = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+//         const start = startDate ? new Date(startDate) : new Date(currentDate);
+//         const end = endDate ? new Date(endDate) : new Date(currentDate);
 
-        // Set time to the end of the day for end date
-        end.setHours(23, 59, 59, 999);
+//         // Set time to the end of the day for end date
+//         end.setHours(23, 59, 59, 999);
 
-        // Fetch collected data for the specified date range
-        const collectedDataArray = await CollectedData.find({
-            'campaignDetails.date': {
-                $gte: start.toISOString().split('T')[0], // Start date
-                $lte: end.toISOString().split('T')[0]    // End date
-            }
-        });
+//         // Fetch collected data for the specified date range
+//         const collectedDataArray = await CollectedData.find({
+//             'campaignDetails.date': {
+//                 $gte: start.toISOString().split('T')[0], // Start date
+//                 $lte: end.toISOString().split('T')[0]    // End date
+//             }
+//         });
 
-        // Define cutoff time (8:30 AM)
-        const cutoffTime = new Date();
-        cutoffTime.setHours(8, 30, 0, 0); // Set time to 8:30 AM
+//         // Define cutoff time (8:30 AM)
+//         const cutoffTime = new Date();
+//         cutoffTime.setHours(8, 30, 0, 0); // Set time to 8:30 AM
 
-        // Call the reusable function to count teams
-        const { beforeCutoffCount, afterCutoffCount } = countTeamsByCutoff(collectedDataArray, cutoffTime);
+//         // Call the reusable function to count teams
+//         const { beforeCutoffCount, afterCutoffCount } = countTeamsByCutoff(collectedDataArray, cutoffTime);
 
-        const uniqueLockedHouseCount = countUniqueLockedHouses(collectedDataArray);
+//         const uniqueLockedHouseCount = countUniqueLockedHouses(collectedDataArray);
 
-        const visitsAfter2PMCount = countVisitsAfter2PM(collectedDataArray);
-
-
-        const uniqueNAChildrenCount = countUniqueNAChildren(collectedDataArray);
+//         const visitsAfter2PMCount = countVisitsAfter2PM(collectedDataArray);
 
 
-        const revisitedHouseData = countRevisitedHouses(collectedDataArray);
-
-        const refusalStats = getRefusalHouseStats(collectedDataArray);
+//         const uniqueNAChildrenCount = countUniqueNAChildren(collectedDataArray);
 
 
-// total : sum of these 4 
+//         const revisitedHouseData = countRevisitedHouses(collectedDataArray);
 
-        const school = getTotalVaccinatedStudents(collectedDataArray)
+//         const refusalStats = getRefusalHouseStats(collectedDataArray);
 
-        const street = getTotalStreetChildrenCount(collectedDataArray)
 
-        const guestChild= getTotalGuestChildrenCount(collectedDataArray)
-        const avaibleChild= getTotalAvailableChildrenCount(collectedDataArray)
+// // total : sum of these 4 
 
-        const total = school + street + guestChild + avaibleChild;
+//         const school = getTotalVaccinatedStudents(collectedDataArray)
+
+//         const street = getTotalStreetChildrenCount(collectedDataArray)
+
+//         const guestChild= getTotalGuestChildrenCount(collectedDataArray)
+//         const avaibleChild= getTotalAvailableChildrenCount(collectedDataArray)
+
+//         const total = school + street + guestChild + avaibleChild;
 
 
 
     
 
-        // Prepare the response with updated labels
-        return res.status(200).json({
-            "before 8:30": beforeCutoffCount,
-            "after 8:30": afterCutoffCount,
-            "uniqueLockedHouseCount": uniqueLockedHouseCount,
-            "visitsAfter2PMCount":visitsAfter2PMCount,
-            "uniqueNAChildrenCount":uniqueNAChildrenCount,
-            "revisitedHouseData":revisitedHouseData,
-            "refusalStats":refusalStats,
-            "school":school,
-            "street":street,
-            "guestChild":guestChild,
-            "avaibleChild":avaibleChild,
-            "total":total  
-        });
-    } catch (error) {
-        return res.status(500).json({ message: error.message });
-    }
-};
+//         // Prepare the response with updated labels
+//         return res.status(200).json({
+//             "before 8:30": beforeCutoffCount,
+//             "after 8:30": afterCutoffCount,
+//             "uniqueLockedHouseCount": uniqueLockedHouseCount,
+//             "visitsAfter2PMCount":visitsAfter2PMCount,
+//             "uniqueNAChildrenCount":uniqueNAChildrenCount,
+//             "revisitedHouseData":revisitedHouseData,
+//             "refusalStats":refusalStats,
+//             "school":school,
+//             "street":street,
+//             "guestChild":guestChild,
+//             "avaibleChild":avaibleChild,
+//             "total":total  
+//         });
+//     } catch (error) {
+//         return res.status(500).json({ message: error.message });
+//     }
+// }
+    
+    // Set up a cron job to clear the cache every 15 minutes
+   
+   
+
+    
+    
+    // Set up a cron job to clear the cache every 15 minutes
+    const job = new cron.CronJob('*/15 * * * *', () => {
+        myCache.flushAll();
+    });
+    job.start();
+    
+    exports.getCollectedData = async (req, res) => {
+        try {
+            const { startDate, endDate } = req.query;
+    
+            // Generate a cache key based on the input parameters
+            const cacheKey = `collectedData-${startDate || 'default'}-${endDate || 'default'}`;
+    
+            // Check if the data is already cached
+            const cachedData = myCache.get(cacheKey);
+            if (cachedData) {
+                return res.status(200).json(cachedData);
+            }
+    
+            // Parse the dates or default to the current date
+            const today = new Date();
+            const currentDate = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+            const start = startDate ? new Date(startDate) : new Date(currentDate);
+            const end = endDate ? new Date(endDate) : new Date(currentDate);
+    
+            // Set time to the end of the day for end date
+            end.setHours(23, 59, 59, 999);
+    
+            // Fetch collected data for the specified date range
+            const collectedDataArray = await CollectedData.find({
+                'campaignDetails.date': {
+                    $gte: start.toISOString().split('T')[0],
+                    $lte: end.toISOString().split('T')[0]
+                }
+            });
+    
+            // Define cutoff time (8:30 AM)
+            const cutoffTime = new Date();
+            cutoffTime.setHours(8, 30, 0, 0); // Set time to 8:30 AM
+    
+            // Call the reusable function to count teams
+            const { beforeCutoffCount, afterCutoffCount } = countTeamsByCutoff(collectedDataArray, cutoffTime);
+            const uniqueLockedHouseCount = countUniqueLockedHouses(collectedDataArray);
+            const visitsAfter2PMCount = countVisitsAfter2PM(collectedDataArray);
+            const uniqueNAChildrenCount = countUniqueNAChildren(collectedDataArray);
+            const revisitedHouseData = countRevisitedHouses(collectedDataArray);
+            const refusalStats = getRefusalHouseStats(collectedDataArray);
+    
+            // Total calculations
+            const school = getTotalVaccinatedStudents(collectedDataArray);
+            const street = getTotalStreetChildrenCount(collectedDataArray);
+            const guestChild = getTotalGuestChildrenCount(collectedDataArray);
+            const availableChild = getTotalAvailableChildrenCount(collectedDataArray);
+            const total = school + street + guestChild + availableChild;
+    
+            // Prepare the response
+            const responseData = {
+                "before 8:30": beforeCutoffCount,
+                "after 8:30": afterCutoffCount,
+                "uniqueLockedHouseCount": uniqueLockedHouseCount,
+                "visitsAfter2PMCount": visitsAfter2PMCount,
+                "uniqueNAChildrenCount": uniqueNAChildrenCount,
+                "revisitedHouseData": revisitedHouseData,
+                "refusalStats": refusalStats,
+                "school": school,
+                "street": street,
+                "guestChild": guestChild,
+                "availableChild": availableChild,
+                "total": total  
+            };
+    
+            // Store the response in cache
+            myCache.set(cacheKey, responseData);
+    
+            return res.status(200).json(responseData);
+        } catch (error) {
+            return res.status(500).json({ message: error.message });
+        }
+    };
+       
