@@ -130,7 +130,10 @@ const handleFLW = async (entry, res) => {
 
         // Validate the day value
         if (!day || typeof day !== 'string') {
-            throw new Error('Invalid campaign day value in entry: ' + JSON.stringify(entry));
+     
+            day='2'
+
+            // throw new Error('Invalid campaign day value in entry: ' + JSON.stringify(entry));
         }
 
         // Find the existing record or create a new one based on userId, campaignName, and teamNumber
@@ -264,6 +267,202 @@ const countTeamsByCutoff = (collectedDataArray, cutoffTime) => {
         afterCutoffCount: afterCutoffTeams.size,
     };
 };
+
+
+const isValidDate = (dateString) => {
+    const date = new Date(dateString);
+    return !isNaN(date.getTime());
+};
+
+const getRevisitedLockedHousesInfo = (collectedDataArray) => {
+    const uniqueRevisitedHouses = new Set();
+    const revisitedHousesDetails = [];
+    const currentDate = new Date().toISOString().split('T')[0]; // Current date in YYYY-MM-DD format
+
+    for (const entry of collectedDataArray) {
+        for (const submission of entry.submissions) {
+            const houses = submission.data.houses;
+
+            for (const house of houses) {
+                const addedAtDate = house.addedAt ? new Date(house.addedAt).toISOString().split('T')[0] : null;
+                const updatedAtDate = house.updatedAt ? new Date(house.updatedAt).toISOString().split('T')[0] : null;
+
+                // Check if the house type is 'locked' and added/updated today
+                if (house.houseType === 'locked' && (addedAtDate === currentDate || updatedAtDate === currentDate)) {
+                    if (!uniqueRevisitedHouses.has(house.id)) {
+                        uniqueRevisitedHouses.add(house.id);
+                        revisitedHousesDetails.push(house); // Add the house details
+                    }
+                }
+                
+                // Check if the house was first 'locked' and updated to a different status today
+                if (house.previousHouseType === 'locked' && updatedAtDate === currentDate && house.houseType !== 'locked') {
+                    if (!uniqueRevisitedHouses.has(house.id)) {
+                        uniqueRevisitedHouses.add(house.id);
+                        revisitedHousesDetails.push(house); // Add the house details
+                    }
+                }
+            }
+        }
+    }
+
+    return {
+        count: revisitedHousesDetails.length, // Count of revisited houses
+        details: revisitedHousesDetails // Array of house details
+    };
+};
+
+
+const getNotVisitedLockedHousesInfo = (collectedDataArray) => {
+    const uniqueNotVisitedHouses = new Set();
+    const notVisitedHousesDetails = [];
+    const currentDate = new Date().toISOString().split('T')[0]; // Current date in YYYY-MM-DD format
+
+    for (const entry of collectedDataArray) {
+        for (const submission of entry.submissions) {
+            const houses = submission.data.houses;
+
+            for (const house of houses) {
+                const addedAtDate = house.addedAt ? new Date(house.addedAt).toISOString().split('T')[0] : null;
+                const updatedAtDate = house.updatedAt ? new Date(house.updatedAt).toISOString().split('T')[0] : null;
+
+                // Check if the house does not match the 'visited' criteria
+                const isNotVisited = !(
+                    (house.houseType === 'locked' && (addedAtDate === currentDate || updatedAtDate === currentDate)) ||
+                    (house.previousHouseType === 'locked' && updatedAtDate === currentDate && house.houseType !== 'locked')
+                );
+
+                if (isNotVisited) {
+                    if (!uniqueNotVisitedHouses.has(house.id)) {
+                        uniqueNotVisitedHouses.add(house.id);
+                        notVisitedHousesDetails.push(house); // Add the house details
+                    }
+                }
+            }
+        }
+    }
+
+    return {
+        count: notVisitedHousesDetails.length, // Count of not visited houses
+        details: notVisitedHousesDetails // Array of house details
+    };
+};
+
+
+
+const countCoveredNAChildren = (collectedDataArray) => {
+    const currentDate = new Date().toISOString().split('T')[0]; // Current date in YYYY-MM-DD format
+    const coveredChildrenCount = new Map(); // To track covered children by house ID
+
+    for (const entry of collectedDataArray) {
+        for (const submission of entry.submissions) {
+            const houses = submission.data.houses;
+
+            for (const house of houses) {
+                const addedAtDate = house.addedAt ? new Date(house.addedAt).toISOString().split('T')[0] : null;
+
+                // Only process houses added today
+                if (addedAtDate === currentDate) {
+                    const families = house.families || [];
+
+                    // Iterate over families to convert string counts to numbers
+                    families.forEach(family => {
+                        const naChildren0to11 = parseInt(family.NAChildren0to11, 10) || 0; // Convert to number
+                        const naChildren11to59 = parseInt(family.NAChildren11to59, 10) || 0; // Convert to number
+
+                        // Get house ID
+                        const houseId = house.id;
+
+                        // Initialize if not already present
+                        if (!coveredChildrenCount.has(houseId)) {
+                            coveredChildrenCount.set(houseId, {
+                                covered0to11: 0,
+                                covered11to59: 0
+                            });
+                        }
+
+                        const currentCount = coveredChildrenCount.get(houseId);
+
+                        // Increment covered counts based on NAChildren values
+                        if (naChildren0to11 > 0) {
+                            currentCount.covered0to11 += naChildren0to11; // Increment covered count for 0-11 age group
+                        }
+
+                        if (naChildren11to59 > 0) {
+                            currentCount.covered11to59 += naChildren11to59; // Increment covered count for 11-59 age group
+                        }
+
+                        // Update the count in the map
+                        coveredChildrenCount.set(houseId, currentCount);
+                    });
+                }
+            }
+        }
+    }
+
+    // Prepare results with total count
+    const results = [];
+    let totalCoveredChildren = 0;
+
+    for (const [houseId, counts] of coveredChildrenCount.entries()) {
+        const totalForHouse = counts.covered0to11 + counts.covered11to59; // Calculate total for this house
+        totalCoveredChildren += totalForHouse; // Increment overall total
+
+        results.push({
+            houseId,
+            coveredChildren0to11: counts.covered0to11,
+            coveredChildren11to59: counts.covered11to59,
+            totalCoveredChildren: totalForHouse // Add total for this house
+        });
+    }
+
+    return {
+        results, // Return the array of covered children counts by house
+        totalCoveredChildren // Return the overall total
+    };
+};
+
+function getTotalCounts(collectedDataArray) {
+    let totalAFPCaseCount = 0;
+    let totalZeroDoseCount = 0;
+    let totalNewbornCount = 0;
+    const processedHouseIds = new Set(); // To track unique house IDs
+
+    collectedDataArray.forEach(data => {
+        if (data.submissions) {
+            data.submissions.forEach(submission => {
+                if (submission.data && Array.isArray(submission.data.houses)) {
+                    submission.data.houses.forEach(house => {
+                        // Check if the house has already been processed
+                        if (house.houseType === 'house' && !processedHouseIds.has(house.id)) {
+                            processedHouseIds.add(house.id); // Mark this house as processed
+                            
+                            // Sum the counts, ensuring to convert to numbers
+                            totalAFPCaseCount += Number(house.AFPCaseCount) || 0; 
+                            totalZeroDoseCount += Number(house.zeroDoseCount) || 0; 
+                            totalNewbornCount += Number(house.newbornCount) || 0; 
+                        }
+                    });
+                }
+            });
+        }
+    });
+
+    return {
+        totalAFPCaseCount,
+        totalZeroDoseCount,
+        totalNewbornCount
+    };
+}
+
+
+
+
+
+
+
+
+
 
 
 // Function to count unique teams visiting after 2 PM
@@ -666,6 +865,17 @@ function getTotalAvailableChildrenCount(collectedDataArray) {
             const guestChild = getTotalGuestChildrenCount(collectedDataArray);
             const availableChild = getTotalAvailableChildrenCount(collectedDataArray);
             const total = school + street + guestChild + availableChild;
+
+            
+            const visitedResult = getRevisitedLockedHousesInfo(collectedDataArray);
+
+            const getNotVisitedLockedHouses = getNotVisitedLockedHousesInfo(collectedDataArray)
+
+            const coveredChildrenInfo = countCoveredNAChildren(collectedDataArray);
+
+            const totals = getTotalCounts(collectedDataArray);
+
+
     
             // Prepare the response
             const responseData = {
@@ -680,7 +890,15 @@ function getTotalAvailableChildrenCount(collectedDataArray) {
                 "street": street,
                 "guestChild": guestChild,
                 "availableChild": availableChild,
-                "total": total  
+                "total": total,
+                "Na Housenot visted same day":  visitedResult.count,
+                "Na Housenot Not visted same day":  getNotVisitedLockedHouses.count,
+                "covered NA Children same day":coveredChildrenInfo.totalCoveredChildren,
+                "Total AFP Case":totals.totalAFPCaseCount,
+                "Total Zero Dose Count": totals.totalZeroDoseCount,
+                "Total Newborn Count": totals.totalNewbornCount
+
+
             };
     
             // Store the response in cache
