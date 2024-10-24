@@ -474,11 +474,27 @@ exports.searchUsers = async (req, res) => {
 
 
 exports.addAdmin = async (req, res) => {
-  return await addUserWithRole(req, res, "ADMIN");
+  try {
+    const result = await addUserWithRole(req, res, "ADMIN");
+    if (result) {
+      await redisClient.del('admin_list');
+    }
+    return result; // Return the result or a relevant response
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
 };
 
 exports.addUmco = async (req, res) => {
-  return await addUserWithRole(req, res, "UCMO"); 
+  try {
+    const result = await addUserWithRole(req, res, "UCMO");
+    if (result) {
+      await redisClient.del('ucmo_list');
+    }
+    return result; // Return the result or a relevant response
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
 };
 
 exports.addAic = async (req, res) => {
@@ -486,26 +502,31 @@ exports.addAic = async (req, res) => {
     if (!req.body.ucmo) {
       return errReturned(res, "ucmo is required.");
     }
-
-    return await addUserWithRole(req, res, "AIC");
+    const result = await addUserWithRole(req, res, "AIC");
+    if (result) {
+      await redisClient.del('aic_list');
+    }
+    return result; // Return the result or a relevant response
   } catch (error) {
     return errReturned(res, error.message);
   }
 };
 
-
 exports.addFlw = async (req, res) => {
-
   try {
     if (!req.body.aic) {
       return errReturned(res, "aic is required.");
     }
-
-    return await addUserWithRole(req, res, "FLW");
+    const result = await addUserWithRole(req, res, "FLW");
+    if (result) {
+      await redisClient.del('flw_list');
+    }
+    return result; // Return the result or a relevant response
   } catch (error) {
     return errReturned(res, error.message);
   }
 };
+
 
 const addUserWithRole = async (req, res, role) => {
   try {
@@ -523,8 +544,8 @@ const addUserWithRole = async (req, res, role) => {
     }
 
 
-    const emailExist = await USER.findOne({ email });
-    if (emailExist) return errReturned(res, "Email Already Exists");
+    const cnicExist = await USER.findOne({ cnic });
+    if (cnicExist) return errReturned(res, "CNIC Already Exists");
 
     // Generate password from CNIC and phone
     // const generatedPassword = `${cnic.slice(0, 5)}${phone.slice(-3)}`;
