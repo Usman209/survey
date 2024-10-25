@@ -207,7 +207,9 @@ exports.getAllFLWs = async (req, res) => {
 
     const flws = await USER.find({ role: 'FLW' }, "firstName lastName email role cnic phone status createdBy updatedBy")
       .populate('createdBy', 'firstName lastName cnic role')
-      .populate('updatedBy', 'firstName lastName cnic role');
+      .populate('updatedBy', 'firstName lastName cnic role')
+      .populate('aic', 'firstName lastName cnic'); // Populate UCMO details
+
 
     const teams = await Team.find().populate('aic', 'firstName lastName cnic')
       .populate('ucmo', 'firstName lastName cnic');
