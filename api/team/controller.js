@@ -89,6 +89,8 @@ exports.createTeam = async (req, res) => {
 
     const savedTeam = await team.save();
     await redisClient.del('all_teams'); // Invalidate cache
+    await redisClient.del('flw_list');
+
     return sendResponse(res, 201, "Team created successfully.", savedTeam);
   } catch (error) {
     return errReturned(res, error.message);
@@ -144,6 +146,8 @@ exports.updateTeam = async (req, res) => {
     }
 
     await redisClient.del('all_teams'); // Invalidate cache
+    await redisClient.del('flw_list');
+
     return sendResponse(res, 200, "Team updated successfully.", updatedTeam);
   } catch (error) {
     return errReturned(res, error.message);
@@ -157,6 +161,8 @@ exports.deleteTeam = async (req, res) => {
     if (!deletedTeam) return errReturned(res, "Team not found.");
     
     await redisClient.del('all_teams'); // Invalidate cache
+    await redisClient.del('flw_list');
+
     return sendResponse(res, 200, "Team deleted successfully.");
   } catch (error) {
     return errReturned(res, error.message);

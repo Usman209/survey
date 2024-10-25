@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const Team = require('../../lib/schema/team.schema');
 
 const USER = require("../../lib/schema/users.schema");
+const mongoose = require('mongoose');
 
 
 const redisClient = require('../../config/redis'); // Adjust the path based on your file structure
@@ -123,6 +124,24 @@ exports.updatePassword = async (req, res) => {
 };
 
 
+
+const removeFLWFromTeam = async (teamId, flwId) => {
+  const team = await Team.findById(teamId);
+  if (!team) throw new Error("Team not found.");
+
+  if (!team.flws.includes(flwId)) {
+    throw new Error("FLW not found in this team.");
+  }
+
+  team.flws = team.flws.filter(flw => flw.toString() !== flwId);
+  await team.save();
+  await redisClient.del('all_teams'); // Invalidate cache
+};
+
+
+
+
+
 exports.updateProfile = async (req, res) => {
   try {
     const userId = req?.params?.id;
@@ -140,40 +159,33 @@ exports.updateProfile = async (req, res) => {
       value.password = await bcrypt.hash(value.password, salt);
     }
 
-    // Fetch the current user role before the update
-    const currentUser = await USER.findById(userId).select('role');
+    // Fetch the current user role, AIC, and FLWs before the update
+    const currentUser = await USER.findById(userId).select('role aic flws');
+
+    // Attempt to update the user profile
     const updatedProfile = await findByIdAndUpdate({
       model: USER,
       id: userId,
       updateData: value,
     });
 
-    // Invalidate caches based on role change
-    if (currentUser.role !== updatedProfile.role) {
-      // If the role has changed, invalidate all caches
-      await redisClient.del('flw_list');
-      await redisClient.del('ucmo_list');
-      await redisClient.del('admin_list');
-      await redisClient.del('aic_list');
-    } else {
-      // If the role hasn't changed, only invalidate the specific cache
-      switch (updatedProfile.role) {
-        case 'FLW':
-          await redisClient.del('flw_list');
-          break;
-        case 'UCMO':
-          await redisClient.del('ucmo_list');
-          break;
-        case 'ADMIN':
-          await redisClient.del('admin_list');
-          break;
-        case 'AIC':
-          await redisClient.del('aic_list');
-          break;
-        default:
-          break; // No cache invalidation needed for other roles
-      }
+    // Ensure the user was successfully updated
+    if (!updatedProfile) {
+      return errReturned(res, "User update failed.");
     }
+
+    // Handle FLW case if the role is FLW
+    if (updatedProfile.role === 'FLW') {
+      await handleFLWUpdate(updatedProfile, currentUser, value);
+    }
+
+    // Handle AIC case if the role is AIC
+    if (updatedProfile.role === 'AIC') {
+      await handleAICUpdate(updatedProfile, value);
+    }
+
+    // Invalidate caches based on role change
+    await invalidateCaches(currentUser, updatedProfile);
 
     return sendResponse(res, EResponseCode.SUCCESS, "Profile updated successfully", updatedProfile);
   } catch (error) {
@@ -181,6 +193,89 @@ exports.updateProfile = async (req, res) => {
     return errReturned(res, "An error occurred while updating the profile");
   }
 };
+
+const handleFLWUpdate = async (updatedProfile, currentUser, value) => {
+  const team = await Team.findOne({ flws: updatedProfile._id }).select('flws aic');
+
+  console.log(team);
+  
+
+  if (team) {
+    const userInFlws = team.flws.some(fl => fl.equals(updatedProfile._id));
+    
+    const incomingAIC = value.aic; // AIC from request body
+    const currentAIC = currentUser.aic; // AIC from the database
+
+    const isIncomingAICValid = incomingAIC && mongoose.Types.ObjectId.isValid(incomingAIC);
+    const teamAIC = team.aic; // AIC from team document
+
+    const currentAICMismatch = currentAIC && !currentAIC.equals(teamAIC);
+    const incomingAICObjectId = isIncomingAICValid ? new mongoose.Types.ObjectId(incomingAIC) : null;
+
+    const incomingAICMismatch = incomingAICObjectId && !incomingAICObjectId.equals(teamAIC);
+
+    if (userInFlws && (currentAICMismatch || incomingAICMismatch)) {
+
+      await removeFLWFromTeam(team._id, updatedProfile._id);
+    
+    } else {
+      console.log('AICs are valid or match, no removal needed.');
+    }
+  }
+};
+
+
+const handleAICUpdate = async (updatedProfile, value) => {
+  const teams = await Team.find({ aic: updatedProfile._id }).select('flws aic ucmo');
+
+  const incomingUCMO = value.ucmo; // UCMO from request body
+  const isIncomingUCMOValid = incomingUCMO && mongoose.Types.ObjectId.isValid(incomingUCMO);
+  const incomingUCMOObjectId = isIncomingUCMOValid ? new mongoose.Types.ObjectId(incomingUCMO) : null;
+
+  for (const team of teams) {
+    const teamUCMO = team.ucmo; // UCMO from team document
+
+    if (incomingUCMOObjectId && !incomingUCMOObjectId.equals(teamUCMO)) {
+      await Team.findByIdAndUpdate(team._id, {
+        flws: [],
+        aic: null,
+        ucmo: null,
+      });
+
+      console.log('All FLWs removed from the team due to UCMO mismatch.');
+    } else {
+      console.log('UCMOs are valid or match, no removal needed.');
+    }
+  }
+};
+
+const invalidateCaches = async (currentUser, updatedProfile) => {
+  if (currentUser.role !== updatedProfile.role) {
+    await redisClient.del('flw_list');
+    await redisClient.del('ucmo_list');
+    await redisClient.del('admin_list');
+    await redisClient.del('aic_list');
+  } else {
+    switch (updatedProfile.role) {
+      case 'FLW':
+        await redisClient.del('flw_list');
+        break;
+      case 'UCMO':
+        await redisClient.del('ucmo_list');
+        break;
+      case 'ADMIN':
+        await redisClient.del('admin_list');
+        break;
+      case 'AIC':
+        await redisClient.del('aic_list');
+        break;
+      default:
+        break;
+    }
+  }
+};
+
+
 
 
 
@@ -325,42 +420,42 @@ exports.getAllAICs = async (req, res) => {
 
 
 
-// Update Profile and Invalidate Cache
-exports.updateProfile = async (req, res) => {
-  try {
-    const userId = req?.params?.id;
+// // Update Profile and Invalidate Cache
+// exports.updateProfile = async (req, res) => {
+//   try {
+//     const userId = req?.params?.id;
 
-    const { error, value } = updateProfileSchemaValidator.validate(req.body, {
-      stripUnknown: true,
-    });
-    if (error) {
-      return errReturned(res, error.message);
-    }
+//     const { error, value } = updateProfileSchemaValidator.validate(req.body, {
+//       stripUnknown: true,
+//     });
+//     if (error) {
+//       return errReturned(res, error.message);
+//     }
 
-    // Check if a new password is provided
-    if (value.password) {
-      const salt = await bcrypt.genSalt(10);
-      value.password = await bcrypt.hash(value.password, salt);
-    }
+//     // Check if a new password is provided
+//     if (value.password) {
+//       const salt = await bcrypt.genSalt(10);
+//       value.password = await bcrypt.hash(value.password, salt);
+//     }
 
-    const profile = await findByIdAndUpdate({
-      model: USER,
-      id: userId,
-      updateData: value,
-    });
+//     const profile = await findByIdAndUpdate({
+//       model: USER,
+//       id: userId,
+//       updateData: value,
+//     });
 
-    // Invalidate caches for user lists
-    await redisClient.del('flw_list');
-    await redisClient.del('ucmo_list');
-    await redisClient.del('admin_list');
-    await redisClient.del('aic_list');
+//     // Invalidate caches for user lists
+//     await redisClient.del('flw_list');
+//     await redisClient.del('ucmo_list');
+//     await redisClient.del('admin_list');
+//     await redisClient.del('aic_list');
 
-    return sendResponse(res, EResponseCode.SUCCESS, "Profile updated successfully", profile);
-  } catch (error) {
-    console.error(error);
-    return errReturned(res, "An error occurred while updating the profile");
-  }
-};
+//     return sendResponse(res, EResponseCode.SUCCESS, "Profile updated successfully", profile);
+//   } catch (error) {
+//     console.error(error);
+//     return errReturned(res, "An error occurred while updating the profile");
+//   }
+// };
 
 
 
