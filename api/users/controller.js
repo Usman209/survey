@@ -282,7 +282,6 @@ exports.getAllAdmins = async (req, res) => {
   }
 };
 
-// Get all AICs
 exports.getAllAICs = async (req, res) => {
   try {
     const cacheKey = 'aic_list';
@@ -292,27 +291,28 @@ exports.getAllAICs = async (req, res) => {
       return sendResponse(res, EResponseCode.SUCCESS, "AIC list", JSON.parse(cachedAICs));
     }
 
-    const aics = await USER.find({ role: 'AIC' }, "firstName lastName email role cnic phone status createdBy updatedBy")
+    // Fetch AICs from the database and populate relevant fields
+    const aics = await USER.find(
+      { role: 'AIC' },
+      "firstName lastName email role cnic phone status createdBy updatedBy ucmo"
+    )
       .populate('createdBy', 'firstName lastName cnic role')
-      .populate('updatedBy', 'firstName lastName cnic role');
+      .populate('updatedBy', 'firstName lastName cnic role')
+      .populate('ucmo', 'firstName lastName cnic'); // Populate UCMO details
 
-    const teams = await Team.find().populate('ucmo', 'firstName lastName cnic');
-
-    const enrichedAICs = await Promise.all(aics.map(async (aic) => {
-      const matchingTeams = teams.filter(team => team.aic && team.aic.toString() === aic._id.toString());
-      const teamDetails = matchingTeams.length > 0 ? matchingTeams[0] : null;
-
+    // Enrich AICs with UCMO details
+    const enrichedAICs = aics.map((aic) => {
       return {
         ...aic.toObject(),
-        teamName: teamDetails ? teamDetails.teamName : 'No team assigned',
-        ucmoDetails: teamDetails && teamDetails.ucmo ? {
-          firstName: teamDetails.ucmo.firstName,
-          lastName: teamDetails.ucmo.lastName,
-          cnic: teamDetails.ucmo.cnic
+        ucmoDetails: aic.ucmo ? {
+          firstName: aic.ucmo.firstName,
+          lastName: aic.ucmo.lastName,
+          cnic: aic.ucmo.cnic
         } : null,
       };
-    }));
+    });
 
+    // Cache the enriched AICs
     await redisClient.set(cacheKey, JSON.stringify(enrichedAICs), 'EX', 3600);
     return sendResponse(res, EResponseCode.SUCCESS, "AIC list", enrichedAICs);
   } catch (err) {
@@ -320,6 +320,8 @@ exports.getAllAICs = async (req, res) => {
     return errReturned(res, err);
   }
 };
+
+
 
 // Update Profile and Invalidate Cache
 exports.updateProfile = async (req, res) => {

@@ -2,6 +2,11 @@ const CollectedData = require('../../lib/schema/data.schema'); // Adjust the pat
 const moment = require('moment'); // To handle date formatting
 const { sendResponse, errReturned } = require('../../lib/utils/dto');
 
+ const mongoose = require('mongoose');
+const Team = require('../../lib/schema/team.schema'); 
+const User = require('../../lib/schema/users.schema'); 
+
+
 const NodeCache = require('node-cache');
 const cron = require('cron');
     
@@ -804,13 +809,13 @@ function getTotalAvailableChildrenCount(collectedDataArray) {
             const { startDate, endDate } = req.query;
     
             // Generate a cache key based on the input parameters
-            const cacheKey = `collectedData-${startDate || 'default'}-${endDate || 'default'}`;
+            // const cacheKey = `collectedData-${startDate || 'default'}-${endDate || 'default'}`;
     
-            // Check if the data is already cached
-            const cachedData = myCache.get(cacheKey);
-            if (cachedData) {
-                return res.status(200).json(cachedData);
-            }
+            // // Check if the data is already cached
+            // const cachedData = myCache.get(cacheKey);
+            // if (cachedData) {
+            //     return res.status(200).json(cachedData);
+            // }
     
             // Parse the dates or default to the current date
             const today = new Date();
@@ -857,6 +862,10 @@ function getTotalAvailableChildrenCount(collectedDataArray) {
 
             const totals = getTotalCounts(collectedDataArray);
 
+            const result= await getDistinctUserIdsForCurrentDate();
+            
+
+
 
     
             // Prepare the response
@@ -878,13 +887,16 @@ function getTotalAvailableChildrenCount(collectedDataArray) {
                 "covered NA Children same day":coveredChildrenInfo.totalCoveredChildren,
                 "Total AFP Case":totals.totalAFPCaseCount,
                 "Total Zero Dose Count": totals.totalZeroDoseCount,
-                "Total Newborn Count": totals.totalNewbornCount
+                "Total Newborn Count": totals.totalNewbornCount,
+                "ucmo %":result.ucmoPercentage,
+                "aic %":result.aicPercentage,
+
 
 
             };
     
             // Store the response in cache
-            myCache.set(cacheKey, responseData);
+            // myCache.set(cacheKey, responseData);
     
             return res.status(200).json(responseData);
         } catch (error) {
@@ -892,3 +904,110 @@ function getTotalAvailableChildrenCount(collectedDataArray) {
         }
     };
        
+    // const getDistinctUserIdsForCurrentDate = async () => {
+    //     // Get the current date's start and end in UTC
+    //     const startOfDayUTC = moment.utc().startOf('day');
+    //     const endOfDayUTC = moment.utc().endOf('day');
+      
+    //     console.log('Start of Day (UTC):', startOfDayUTC.toISOString());
+    //     console.log('End of Day (UTC):', endOfDayUTC.toISOString());
+      
+    //     try {
+    //       // Query for records created today in UTC
+    //       const collectedDataRecords = await CollectedData.find({
+    //         createdAt: { $gte: startOfDayUTC.toDate(), $lt: endOfDayUTC.toDate() }
+    //       });
+      
+    //       console.log('Collected Data Records:', collectedDataRecords);
+      
+    //       // Extract distinct userIds
+    //       const userIds = Array.from(new Set(collectedDataRecords.map(record => record.userId.toString())));
+    //       console.log('Distinct User IDs:', userIds);
+          
+    //       return userIds;
+    //     } catch (error) {
+    //       console.error("Error fetching collected data:", error);
+    //     }
+    //   };
+
+
+
+    const getDistinctUserIdsForCurrentDate = async () => {
+      // Get the current date's start and end in UTC
+      const startOfDayUTC = moment.utc().startOf('day');
+      const endOfDayUTC = moment.utc().endOf('day');
+    
+      console.log('Start of Day (UTC):', startOfDayUTC.toISOString());
+      console.log('End of Day (UTC):', endOfDayUTC.toISOString());
+    
+      try {
+        // Query for records created today in UTC
+        const collectedDataRecords = await CollectedData.find({
+          createdAt: { $gte: startOfDayUTC.toDate(), $lt: endOfDayUTC.toDate() }
+        });
+    
+    
+        // Extract distinct userIds from CollectedData
+        const userIds = Array.from(new Set(collectedDataRecords.map(record => record.userId.toString())));
+    
+        // Query Users based on the extracted user IDs
+        const users = await User.find({
+          _id: { $in: userIds },
+          $or: [{ role: 'UCMO' }, { role: 'AIC' }]
+        });
+    
+        // Create arrays for UCMO and AIC IDs from users
+        const collectedUCMOIds = users.filter(user => user.role === 'UCMO').map(user => user._id.toString());
+        const collectedAICIds = users.filter(user => user.role === 'AIC').map(user => user._id.toString());
+    
+       
+    
+        // // Step 1: Retrieve teams
+        // const teams = await Team.find({}); // Adjust the query as needed
+    
+        // // Step 2: Extract distinct UCMO and AIC IDs from teams
+        // const ucmoIdsFromTeams = new Set();
+        // const aicIdsFromTeams = new Set();
+    
+        // teams.forEach(team => {
+        //   if (team.ucmo) {
+        //     ucmoIdsFromTeams.add(team.ucmo.toString());
+        //   }
+        //   if (team.aic) {
+        //     aicIdsFromTeams.add(team.aic.toString());
+        //   }
+        // });
+    
+     
+        // Get lengths of each array
+        const collectedUCMOIdsLength = collectedUCMOIds.length;
+        const collectedAICIdsLength = collectedAICIds.length;
+        // const ucmoIdsFromTeamsLength = ucmoIdsFromTeams.size; // Use size for Set 245
+        // const aicIdsFromTeamsLength = aicIdsFromTeams.size; // Use size for Set  923
+
+        const ucmoIdsFromTeamsLength = 250; // Use size for Set 245
+        const aicIdsFromTeamsLength = 930; // Use size for Set  923
+
+
+        const ucmoPercentage = ucmoIdsFromTeamsLength > 0 
+        ? ((collectedUCMOIdsLength / ucmoIdsFromTeamsLength) * 100).toFixed(2) 
+        : '0.00'; // Return '0.00' as a string for consistent formatting
+      
+      const aicPercentage = aicIdsFromTeamsLength > 0 
+        ? ((collectedAICIdsLength / aicIdsFromTeamsLength) * 100).toFixed(2) 
+        : '0.00'; // Similarly format AIC percentage
+
+
+    
+        // Combine results including lengths
+        return {
+            ucmoPercentage,
+            aicPercentage
+          
+        };
+      } catch (error) {
+        console.error("Error fetching collected data or users:", error);
+      }
+    };
+    
+ 
