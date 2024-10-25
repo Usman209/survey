@@ -131,6 +131,12 @@ exports.updateTeam = async (req, res) => {
       Object.entries(req.body).filter(([_, value]) => value !== null)
     );
 
+    // Check if 'territory.uc' is being updated
+    if (updateData.territory?.uc) {
+      const newTeamName = await generateUniqueTeamName(updateData.territory.uc);
+      updateData.teamName = newTeamName; // Update team name
+    }
+
     const updatedTeam = await Team.findByIdAndUpdate(req.params.id, updateData, { new: true });
 
     if (!updatedTeam) {
@@ -143,6 +149,7 @@ exports.updateTeam = async (req, res) => {
     return errReturned(res, error.message);
   }
 };
+
 
 exports.deleteTeam = async (req, res) => {
   try {
