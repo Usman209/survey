@@ -799,7 +799,7 @@ function getTotalAvailableChildrenCount(collectedDataArray) {
     
     
     // Set up a cron job to clear the cache every 15 minutes
-    const job = new cron.CronJob('*/15 * * * *', () => {
+    const job = new cron.CronJob('*/30 * * * *', () => {
         myCache.flushAll();
     });
     job.start();
@@ -809,13 +809,13 @@ function getTotalAvailableChildrenCount(collectedDataArray) {
             const { startDate, endDate } = req.query;
     
             // Generate a cache key based on the input parameters
-            // const cacheKey = `collectedData-${startDate || 'default'}-${endDate || 'default'}`;
+            const cacheKey = `collectedData-${startDate || 'default'}-${endDate || 'default'}`;
     
-            // // Check if the data is already cached
-            // const cachedData = myCache.get(cacheKey);
-            // if (cachedData) {
-            //     return res.status(200).json(cachedData);
-            // }
+            // Check if the data is already cached
+            const cachedData = myCache.get(cacheKey);
+            if (cachedData) {
+                return res.status(200).json(cachedData);
+            }
     
             // Parse the dates or default to the current date
             const today = new Date();
@@ -896,7 +896,7 @@ function getTotalAvailableChildrenCount(collectedDataArray) {
             };
     
             // Store the response in cache
-            // myCache.set(cacheKey, responseData);
+            myCache.set(cacheKey, responseData);
     
             return res.status(200).json(responseData);
         } catch (error) {
