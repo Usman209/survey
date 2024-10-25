@@ -7,19 +7,21 @@ const { EUserRole } = require('../../lib/utils/enum');
 
 
 
+// authenticateAndAuthorize([EUserRole.SUPER_ADMIN])
+
 
 // Create a new campaign
-router.post('/',   authenticateAndAuthorize([EUserRole.SUPER_ADMIN]), campaignController.createCampaign);
+router.post('/',   campaignController.createCampaign);
 
 // Get all campaigns
-router.get('/',  authenticateAndAuthorize([EUserRole.SUPER_ADMIN]), campaignController.getAllCampaigns);
+router.get('/',  campaignController.getAllCampaigns);
 
 // Get a campaign by ID
-router.get('/:id',  authenticateAndAuthorize([EUserRole.SUPER_ADMIN]), campaignController.getCampaignById);
+router.get('/:id',   campaignController.getCampaignById);
 
-router.get('/active/:id',  authenticateAndAuthorize([EUserRole.SUPER_ADMIN]), campaignController.activateCampaign);
+router.get('/active/:id',   campaignController.activateCampaign);
 
-router.get('/inactive/:id',  authenticateAndAuthorize([EUserRole.SUPER_ADMIN]),campaignController.deactivateCampaign);
+router.get('/inactive/:id',campaignController.deactivateCampaign);
 
 
 
