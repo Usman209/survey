@@ -22,7 +22,6 @@ const handleAICUCMO = async (collectedDataArray) => {
         throw new Error('Data is empty. Please add survey data first before syncing.');
     }
 
-    // console.log(collectedDataArray);
 
 
     // Extract the first UCMOCampaign entry
@@ -231,7 +230,6 @@ const handleFLW = async (entry, res) => {
 
 exports.syncCollectedData = async (req, res) => {
     try {
-        console.log(req.body);
         const collectedDataArray = req.body; // Array of collected data from the mobile app
 
         // Check if the collected data array is empty
@@ -239,8 +237,6 @@ exports.syncCollectedData = async (req, res) => {
             return res.status(400).json({ message: 'Data is empty. Please add survey data first before syncing.' });
         }
 
-        // Log the incoming data for debugging
-        console.log('Collected Data Array:', JSON.stringify(collectedDataArray, null, 2));
 
         const userRole = collectedDataArray[0].userData.role; // Assuming role is in userData
 
@@ -1002,9 +998,7 @@ const getDistinctUserIdsForCurrentDate = async () => {
     const startOfDayUTC = moment.utc().startOf('day');
     const endOfDayUTC = moment.utc().endOf('day');
 
-    console.log('Start of Day (UTC):', startOfDayUTC.toISOString());
-    console.log('End of Day (UTC):', endOfDayUTC.toISOString());
-
+ 
     try {
         // Query for records created today in UTC
         const collectedDataRecords = await CollectedData.find({

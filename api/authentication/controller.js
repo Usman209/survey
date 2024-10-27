@@ -41,12 +41,8 @@ exports.login = async (req, res) => {
       cnic: user.cnic,
       phone: user.contact,
       role: user.role,
-      needsPasswordReset : user.isFirstLogin === undefined ? 'true' : (user.isFirstLogin ? 'true' : 'false')
-
-
+      needsPasswordReset: user.isFirstLogin === undefined ? 'true' : (user.isFirstLogin ? 'true' : 'false'),
     };
-
-
 
     if (!validPass) return errReturned(res, "Invalid Password");
 
@@ -55,10 +51,12 @@ exports.login = async (req, res) => {
       expiresIn: process.env.JWT_EXPIRES_IN,
     });
 
-    res.header("auth-token", token).json({ token, user: response });
+    // Introduce a delay before sending the response
+    setTimeout(() => {
+      res.header("auth-token", token).json({ token, user: response });
+    }, 1000); // Delay of 1000 ms (1 second)
 
   } catch (error) {
-    
     return errReturned(res, error.message || "An error occurred");
   }
 };

@@ -174,15 +174,15 @@ exports.updateProfile = async (req, res) => {
       return errReturned(res, "User update failed.");
     }
 
-    // Handle FLW case if the role is FLW
-    if (updatedProfile.role === 'FLW') {
-      await handleFLWUpdate(updatedProfile, currentUser, value);
-    }
+    // // Handle FLW case if the role is FLW
+    // if (updatedProfile.role === 'FLW') {
+    //   await handleFLWUpdate(updatedProfile, currentUser, value);
+    // }
 
-    // Handle AIC case if the role is AIC
-    if (updatedProfile.role === 'AIC') {
-      await handleAICUpdate(updatedProfile, value);
-    }
+    // // Handle AIC case if the role is AIC
+    // if (updatedProfile.role === 'AIC') {
+    //   await handleAICUpdate(updatedProfile, value);
+    // }
 
     // Invalidate caches based on role change
     await invalidateCaches(currentUser, updatedProfile);
