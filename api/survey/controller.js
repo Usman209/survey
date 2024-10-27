@@ -2,16 +2,16 @@ const CollectedData = require('../../lib/schema/data.schema'); // Adjust the pat
 const moment = require('moment'); // To handle date formatting
 const { sendResponse, errReturned } = require('../../lib/utils/dto');
 
- const mongoose = require('mongoose');
-const Team = require('../../lib/schema/team.schema'); 
-const User = require('../../lib/schema/users.schema'); 
+const mongoose = require('mongoose');
+const Team = require('../../lib/schema/team.schema');
+const User = require('../../lib/schema/users.schema');
 
 
 const NodeCache = require('node-cache');
 const cron = require('cron');
-    
-    // Create a cache instance
-    const myCache = new NodeCache({ stdTTL: 900 }); // Cache for 15 minutes
+
+// Create a cache instance
+const myCache = new NodeCache({ stdTTL: 900 }); // Cache for 15 minutes
 
 
 
@@ -23,7 +23,7 @@ const handleAICUCMO = async (collectedDataArray) => {
     }
 
     // console.log(collectedDataArray);
-    
+
 
     // Extract the first UCMOCampaign entry
     const ucmoCampaign = collectedDataArray[0].UCMOCampaign;
@@ -56,9 +56,9 @@ const handleAICUCMO = async (collectedDataArray) => {
         });
 
         if (!collectedData) {
-            collectedData = new CollectedData({ 
-                userId, 
-                submissions: [], 
+            collectedData = new CollectedData({
+                userId,
+                submissions: [],
                 submissionIndex: {},
                 campaignDetails: {
                     teamNumber,
@@ -106,9 +106,9 @@ const processSubmission = async (collectedData, data, date) => {
         if (!collectedData.submissionIndex[submittedAtString]) {
             collectedData.submissionIndex[submittedAtString] = [];
         }
-        
+
         // Store index of new submission
-        collectedData.submissionIndex[submittedAtString].push(collectedData.submissions.length - 1); 
+        collectedData.submissionIndex[submittedAtString].push(collectedData.submissions.length - 1);
     }
 
     // Save the record
@@ -195,7 +195,7 @@ exports.syncCollectedData = async (req, res) => {
     try {
 
         console.log(req.body);
-        
+
         const collectedDataArray = req.body; // Array of collected data from the mobile app
 
         // Check if the collected data array is empty
@@ -261,43 +261,43 @@ const isValidDate = (dateString) => {
     return !isNaN(date.getTime());
 };
 
-const getRevisitedLockedHousesInfo = (collectedDataArray) => {
-    const uniqueRevisitedHouses = new Set();
-    const revisitedHousesDetails = [];
-    const currentDate = new Date().toISOString().split('T')[0]; // Current date in YYYY-MM-DD format
+// const getRevisitedLockedHousesInfo = (collectedDataArray) => {
+//     const uniqueRevisitedHouses = new Set();
+//     const revisitedHousesDetails = [];
+//     const currentDate = new Date().toISOString().split('T')[0]; // Current date in YYYY-MM-DD format
 
-    for (const entry of collectedDataArray) {
-        for (const submission of entry.submissions) {
-            const houses = submission.data.houses;
+//     for (const entry of collectedDataArray) {
+//         for (const submission of entry.submissions) {
+//             const houses = submission.data.houses;
 
-            for (const house of houses) {
-                const addedAtDate = house.addedAt ? new Date(house.addedAt).toISOString().split('T')[0] : null;
-                const updatedAtDate = house.updatedAt ? new Date(house.updatedAt).toISOString().split('T')[0] : null;
+//             for (const house of houses) {
+//                 const addedAtDate = house.addedAt ? new Date(house.addedAt).toISOString().split('T')[0] : null;
+//                 const updatedAtDate = house.updatedAt ? new Date(house.updatedAt).toISOString().split('T')[0] : null;
 
-                // Check if the house type is 'locked' and added/updated today
-                if (house.houseType === 'locked' && (addedAtDate === currentDate || updatedAtDate === currentDate)) {
-                    if (!uniqueRevisitedHouses.has(house.id)) {
-                        uniqueRevisitedHouses.add(house.id);
-                        revisitedHousesDetails.push(house); // Add the house details
-                    }
-                }
-                
-                // Check if the house was first 'locked' and updated to a different status today
-                if (house.previousHouseType === 'locked' && updatedAtDate === currentDate && house.houseType !== 'locked') {
-                    if (!uniqueRevisitedHouses.has(house.id)) {
-                        uniqueRevisitedHouses.add(house.id);
-                        revisitedHousesDetails.push(house); // Add the house details
-                    }
-                }
-            }
-        }
-    }
+//                 // Check if the house type is 'locked' and added/updated today
+//                 if (house.houseType === 'locked' && (addedAtDate === currentDate || updatedAtDate === currentDate)) {
+//                     if (!uniqueRevisitedHouses.has(house.id)) {
+//                         uniqueRevisitedHouses.add(house.id);
+//                         revisitedHousesDetails.push(house); // Add the house details
+//                     }
+//                 }
 
-    return {
-        count: revisitedHousesDetails.length, // Count of revisited houses
-        details: revisitedHousesDetails // Array of house details
-    };
-};
+//                 // Check if the house was first 'locked' and updated to a different status today
+//                 if (house.previousHouseType === 'locked' && updatedAtDate === currentDate && house.houseType !== 'locked') {
+//                     if (!uniqueRevisitedHouses.has(house.id)) {
+//                         uniqueRevisitedHouses.add(house.id);
+//                         revisitedHousesDetails.push(house); // Add the house details
+//                     }
+//                 }
+//             }
+//         }
+//     }
+
+//     return {
+//         count: revisitedHousesDetails.length, // Count of revisited houses
+//         details: revisitedHousesDetails // Array of house details
+//     };
+// };
 
 
 const getNotVisitedLockedHousesInfo = (collectedDataArray) => {
@@ -334,6 +334,115 @@ const getNotVisitedLockedHousesInfo = (collectedDataArray) => {
         details: notVisitedHousesDetails // Array of house details
     };
 };
+
+
+
+
+const countNAChildren = (collectedDataArray) => {
+    let totalNAChildren = 0; // Total NA children count
+
+    for (const entry of collectedDataArray) {
+        for (const submission of entry.submissions) {
+            const houses = submission.data.houses;
+
+            for (const house of houses) {
+                let naChildren0to11 = 0;
+                let naChildren11to59 = 0;
+
+                // Calculate the number of children in each age group
+                if (Array.isArray(house.families)) {
+                    for (const family of house.families) {
+                        naChildren0to11 += Number(family.NAChildren0to11) || 0;
+                        naChildren11to59 += Number(family.NAChildren11to59) || 0;
+                    }
+                }
+
+                // Only sum if either count is greater than one
+                if (naChildren0to11 > 1 || naChildren11to59 > 1) {
+                    totalNAChildren += naChildren0to11 + naChildren11to59;
+                }
+            }
+        }
+    }
+
+    return totalNAChildren; // Return total NA children
+};
+
+
+
+const countNAChildrenCover = (collectedDataArray) => {
+    let totalNAChildren = 0; // Total NA children count
+
+    for (const entry of collectedDataArray) {
+        for (const submission of entry.submissions) {
+            const houses = submission.data.houses;
+
+            for (const house of houses) {
+                let naChildren0to11 = 0;
+                let naChildren11to59 = 0;
+
+                // Calculate the number of children in each age group
+                if (Array.isArray(house.families)) {
+                    for (const family of house.families) {
+                        naChildren0to11 += Number(family.NAChildren0to11) || 0;
+                        naChildren11to59 += Number(family.NAChildren11to59) || 0;
+                    }
+                }
+
+                // Check if updatedAt exists
+                if (house.updatedAt) {
+                    // Only sum if either count is greater than one
+                    if (naChildren0to11 > 1 || naChildren11to59 > 1) {
+                        totalNAChildren += naChildren0to11 + naChildren11to59;
+                    }
+                }
+            }
+        }
+    }
+
+    return totalNAChildren; // Return total NA children
+};
+
+
+
+const countNAChildrenAfter2Pm = (collectedDataArray) => {
+    let totalNAChildren = 0; // Total NA children count
+    const cutoffTime = new Date();
+    cutoffTime.setHours(14, 0, 0, 0); // Set cutoff time to 2 PM
+
+    for (const entry of collectedDataArray) {
+        for (const submission of entry.submissions) {
+            const houses = submission.data.houses;
+
+            for (const house of houses) {
+                let naChildren0to11 = 0;
+                let naChildren11to59 = 0;
+
+                // Calculate the number of children in each age group
+                if (Array.isArray(house.families)) {
+                    for (const family of house.families) {
+                        naChildren0to11 += Number(family.NAChildren0to11) || 0;
+                        naChildren11to59 += Number(family.NAChildren11to59) || 0;
+                    }
+                }
+
+                // Check if updatedAt exists and is after 2 PM
+                if (house.updatedAt) {
+                    const updatedAtDate = new Date(house.updatedAt);
+                    if (updatedAtDate > cutoffTime) {
+                        // Only sum if either count is greater than one
+                        if (naChildren0to11 > 1 || naChildren11to59 > 1) {
+                            totalNAChildren += naChildren0to11 + naChildren11to59;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return totalNAChildren; // Return total NA children
+};
+
 
 
 
@@ -423,11 +532,11 @@ function getTotalCounts(collectedDataArray) {
                         // Check if the house has already been processed
                         if (house.houseType === 'house' && !processedHouseIds.has(house.id)) {
                             processedHouseIds.add(house.id); // Mark this house as processed
-                            
+
                             // Sum the counts, ensuring to convert to numbers
-                            totalAFPCaseCount += Number(house.AFPCaseCount) || 0; 
-                            totalZeroDoseCount += Number(house.zeroDoseCount) || 0; 
-                            totalNewbornCount += Number(house.newbornCount) || 0; 
+                            totalAFPCaseCount += Number(house.AFPCaseCount) || 0;
+                            totalZeroDoseCount += Number(house.zeroDoseCount) || 0;
+                            totalNewbornCount += Number(house.newbornCount) || 0;
                         }
                     });
                 }
@@ -471,31 +580,6 @@ const countVisitsAfter2PM = (collectedDataArray) => {
 };
 
 
-// Function to count unique NA children in houses
-const countUniqueNAChildren = (collectedDataArray) => {
-    const uniqueHouses = new Map(); // To track unique house numbers
-
-    for (const entry of collectedDataArray) {
-        for (const submission of entry.submissions) {
-            const houses = submission.data.houses;
-
-            for (const house of houses) {
-                // Check if the house type is 'na'
-                if (house.type === 'na' && Array.isArray(house.naChildren)) {
-                    // Use house number as key for uniqueness
-                    if (!uniqueHouses.has(house.houseNumber)) {
-                        uniqueHouses.set(house.houseNumber, 0); // Initialize count for this house number
-                    }
-                    // Count the number of unique naChildren
-                    uniqueHouses.set(house.houseNumber, uniqueHouses.get(house.houseNumber) + house.naChildren.length);
-                }
-            }
-        }
-    }
-
-    // Return the total count of NA children across unique houses
-    return Array.from(uniqueHouses.values()).reduce((acc, count) => acc + count, 0);
-};
 
 
 
@@ -521,48 +605,39 @@ const countUniqueLockedHouses = (collectedDataArray) => {
 }
 
 
-const countRevisitedHouses = (collectedDataArray) => {
-    const housesMap = {};
 
-    collectedDataArray.forEach(submission => {
-        submission.submissions.forEach(entry => {
-            entry.data.houses.forEach(house => {
+const countUniqueHousesCover = (collectedDataArray) => {
+    const uniqueHouses = new Set(); // To track distinct house numbers
+    const previouslyLockedHouses = new Set(); // To track previously locked houses
+
+    for (const entry of collectedDataArray) {
+        for (const submission of entry.submissions) {
+            const houses = submission.data.houses;
+
+            for (const house of houses) {
+                const houseNumber = house.id; // Assuming house.id is the unique identifier
+
+                // Check if the house type is 'locked'
                 if (house.houseType === 'locked') {
-                    const houseNumber = house.houseNumber;
-                    const timestamp = new Date(house.addedAt).getTime(); // Get timestamp in milliseconds
-
-                    // Initialize the house entry if it doesn't exist
-                    if (!housesMap[houseNumber]) {
-                        housesMap[houseNumber] = {
-                            visitTimestamps: [],
-                            revisits: 0,
-                        };
-                    }
-
-                    // Check if this visit is a revisit
-                    const isRevisit = housesMap[houseNumber].visitTimestamps.some(existingTimestamp => {
-                        return Math.abs(existingTimestamp - timestamp) > 0; // Consider it a revisit if timestamps differ
-                    });
-
-                    // Add the timestamp to the list
-                    housesMap[houseNumber].visitTimestamps.push(timestamp);
-
-                    // Increment revisit count if it's a revisit
-                    if (isRevisit) {
-                        housesMap[houseNumber].revisits += 1;
-                    }
+                    previouslyLockedHouses.add(houseNumber);
                 }
-            });
-        });
-    });
 
-    // Return only the count of revisited houses
-    const revisitedHouseCount = Object.values(housesMap).reduce((total, house) => {
-        return total + (house.revisits > 0 ? 1 : 0); // Count houses with at least one revisit
-    }, 0);
+                // If the house is updated to a different type (e.g., 'house'), add it to uniqueHouses
+                if (house.houseType === 'house' && previouslyLockedHouses.has(houseNumber)) {
+                    uniqueHouses.add(houseNumber);
+                    previouslyLockedHouses.delete(houseNumber); // Remove it to avoid double counting
+                }
+            }
+        }
+    }
 
-    return revisitedHouseCount;
+    // Add all previously locked houses that are no longer locked
+    uniqueHouses.forEach(houseNumber => previouslyLockedHouses.has(houseNumber) && uniqueHouses.add(houseNumber));
+
+    return uniqueHouses.size; // Return the count of unique houses
 };
+
+
 
 
 const getRefusalHouseStats = (collectedDataArray) => {
@@ -664,11 +739,11 @@ function getTotalGuestChildrenCount(collectedDataArray) {
                         // Check if the house has already been processed
                         if (house.houseType === 'house' && !processedHouseIds.has(house.id)) {
                             processedHouseIds.add(house.id); // Mark this house as processed
-                            
+
                             if (Array.isArray(house.families)) {
                                 house.families.forEach(family => {
                                     // Convert string value to number and add to total
-                                    const availableGuestChildrenCount = Number(family.availableGuestChildrenCount) || 0; 
+                                    const availableGuestChildrenCount = Number(family.availableGuestChildrenCount) || 0;
                                     totalGuestChildren += availableGuestChildrenCount; // Add to total
                                 });
                             }
@@ -683,6 +758,34 @@ function getTotalGuestChildrenCount(collectedDataArray) {
 }
 
 
+
+const countUniqueLockedHousesAfter2PM = (collectedDataArray) => {
+    const uniqueLockedHouses = new Set(); // To track distinct locked houses
+
+    // Define the cutoff time for 2 PM
+    const cutoffTime = new Date();
+    cutoffTime.setHours(14, 0, 0, 0); // Set to 2 PM
+
+    for (const entry of collectedDataArray) {
+        for (const submission of entry.submissions) {
+            const houses = submission.data.houses;
+
+            for (const house of houses) {
+                const houseNumber = house.id; // Assuming house.id is the unique identifier
+                const updatedAt = new Date(house.updatedAt);
+
+                // Check if the house is locked and updatedAt is >= 2 PM
+                if (house.houseType === 'locked' && updatedAt >= cutoffTime) {
+                    uniqueLockedHouses.add(houseNumber);
+                }
+            }
+        }
+    }
+
+    return uniqueLockedHouses.size; // Return the count of unique locked houses
+};
+
+
 function getTotalAvailableChildrenCount(collectedDataArray) {
     let totalAvailableChildren = 0;
     const processedHouseIds = new Set(); // To track unique house IDs
@@ -695,7 +798,7 @@ function getTotalAvailableChildrenCount(collectedDataArray) {
                         // Check if the house has already been processed
                         if (house.houseType === 'house' && !processedHouseIds.has(house.id)) {
                             processedHouseIds.add(house.id); // Mark this house as 
-                                                  
+
                             if (Array.isArray(house.families)) {
                                 house.families.forEach((family) => {
                                     // Convert string values to numbers
@@ -716,259 +819,169 @@ function getTotalAvailableChildrenCount(collectedDataArray) {
     return totalAvailableChildren;
 }
 
-// exports.getCollectedData = async (req, res) => {
-//     try {
-//         const { startDate, endDate } = req.query;
+// Set up a cron job to clear the cache every 15 minutes
+const job = new cron.CronJob('*/30 * * * *', () => {
+    myCache.flushAll();
+});
+job.start();
 
-//         // Parse the dates or default to the current date
-//         const today = new Date();
-//         const currentDate = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-//         const start = startDate ? new Date(startDate) : new Date(currentDate);
-//         const end = endDate ? new Date(endDate) : new Date(currentDate);
+exports.getCollectedData = async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
 
-//         // Set time to the end of the day for end date
-//         end.setHours(23, 59, 59, 999);
+        // Generate a cache key based on the input parameters
+        const cacheKey = `collectedData-${startDate || 'default'}-${endDate || 'default'}`;
 
-//         // Fetch collected data for the specified date range
-//         const collectedDataArray = await CollectedData.find({
-//             'campaignDetails.date': {
-//                 $gte: start.toISOString().split('T')[0], // Start date
-//                 $lte: end.toISOString().split('T')[0]    // End date
-//             }
-//         });
-
-//         // Define cutoff time (8:30 AM)
-//         const cutoffTime = new Date();
-//         cutoffTime.setHours(8, 30, 0, 0); // Set time to 8:30 AM
-
-//         // Call the reusable function to count teams
-//         const { beforeCutoffCount, afterCutoffCount } = countTeamsByCutoff(collectedDataArray, cutoffTime);
-
-//         const uniqueLockedHouseCount = countUniqueLockedHouses(collectedDataArray);
-
-//         const visitsAfter2PMCount = countVisitsAfter2PM(collectedDataArray);
-
-
-//         const uniqueNAChildrenCount = countUniqueNAChildren(collectedDataArray);
-
-
-//         const revisitedHouseData = countRevisitedHouses(collectedDataArray);
-
-//         const refusalStats = getRefusalHouseStats(collectedDataArray);
-
-
-// // total : sum of these 4 
-
-//         const school = getTotalVaccinatedStudents(collectedDataArray)
-
-//         const street = getTotalStreetChildrenCount(collectedDataArray)
-
-//         const guestChild= getTotalGuestChildrenCount(collectedDataArray)
-//         const avaibleChild= getTotalAvailableChildrenCount(collectedDataArray)
-
-//         const total = school + street + guestChild + avaibleChild;
-
-
-
-    
-
-//         // Prepare the response with updated labels
-//         return res.status(200).json({
-//             "before 8:30": beforeCutoffCount,
-//             "after 8:30": afterCutoffCount,
-//             "uniqueLockedHouseCount": uniqueLockedHouseCount,
-//             "visitsAfter2PMCount":visitsAfter2PMCount,
-//             "uniqueNAChildrenCount":uniqueNAChildrenCount,
-//             "revisitedHouseData":revisitedHouseData,
-//             "refusalStats":refusalStats,
-//             "school":school,
-//             "street":street,
-//             "guestChild":guestChild,
-//             "avaibleChild":avaibleChild,
-//             "total":total  
-//         });
-//     } catch (error) {
-//         return res.status(500).json({ message: error.message });
-//     }
-// }
-    
-    // Set up a cron job to clear the cache every 15 minutes
-   
-   
-
-    
-    
-    // Set up a cron job to clear the cache every 15 minutes
-    const job = new cron.CronJob('*/30 * * * *', () => {
-        myCache.flushAll();
-    });
-    job.start();
-    
-    exports.getCollectedData = async (req, res) => {
-        try {
-            const { startDate, endDate } = req.query;
-    
-            // Generate a cache key based on the input parameters
-            const cacheKey = `collectedData-${startDate || 'default'}-${endDate || 'default'}`;
-    
-            // Check if the data is already cached
-            const cachedData = myCache.get(cacheKey);
-            if (cachedData) {
-                return res.status(200).json(cachedData);
-            }
-    
-            // Parse the dates or default to the current date
-            const today = new Date();
-            const currentDate = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-            const start = startDate ? new Date(startDate) : new Date(currentDate);
-            const end = endDate ? new Date(endDate) : new Date(currentDate);
-    
-            // Set time to the end of the day for end date
-            end.setHours(23, 59, 59, 999);
-    
-            // Fetch collected data for the specified date range
-            const collectedDataArray = await CollectedData.find({
-                'campaignDetails.date': {
-                    $gte: start.toISOString().split('T')[0],
-                    $lte: end.toISOString().split('T')[0]
-                }
-            });
-    
-            // Define cutoff time (8:30 AM)
-            const cutoffTime = new Date();
-            cutoffTime.setHours(8, 30, 0, 0); // Set time to 8:30 AM
-    
-            // Call the reusable function to count teams
-            const { beforeCutoffCount, afterCutoffCount } = countTeamsByCutoff(collectedDataArray, cutoffTime);
-            const uniqueLockedHouseCount = countUniqueLockedHouses(collectedDataArray);
-            const visitsAfter2PMCount = countVisitsAfter2PM(collectedDataArray);
-            const uniqueNAChildrenCount = countUniqueNAChildren(collectedDataArray);
-            const revisitedHouseData = countRevisitedHouses(collectedDataArray);
-            const refusalStats = getRefusalHouseStats(collectedDataArray);
-    
-            // Total calculations
-            const school = getTotalVaccinatedStudents(collectedDataArray);
-            const street = getTotalStreetChildrenCount(collectedDataArray);
-            const guestChild = getTotalGuestChildrenCount(collectedDataArray);
-            const availableChild = getTotalAvailableChildrenCount(collectedDataArray);
-            const total = school + street + guestChild + availableChild;
-
-            
-            const visitedResult = getRevisitedLockedHousesInfo(collectedDataArray);
-
-            const getNotVisitedLockedHouses = getNotVisitedLockedHousesInfo(collectedDataArray)
-
-            const coveredChildrenInfo = countCoveredNAChildren(collectedDataArray);
-
-            const totals = getTotalCounts(collectedDataArray);
-
-            const result= await getDistinctUserIdsForCurrentDate();
-            
-
-
-
-    
-            // Prepare the response
-            const responseData = {
-                "before 8:30": beforeCutoffCount,
-                "after 8:30": afterCutoffCount,
-                "uniqueLockedHouseCount": uniqueLockedHouseCount,
-                "visitsAfter2PMCount": visitsAfter2PMCount,
-                "uniqueNAChildrenCount": uniqueNAChildrenCount,
-                "revisitedHouseData": revisitedHouseData,
-                "refusalStats": refusalStats,
-                "school": school,
-                "street": street,
-                "guestChild": guestChild,
-                "availableChild": availableChild,
-                "total": total,
-                "Na Housenot visted same day":  visitedResult.count,
-                "Na Housenot Not visted same day":  getNotVisitedLockedHouses.count,
-                "covered NA Children same day":coveredChildrenInfo.totalCoveredChildren,
-                "Total AFP Case":totals.totalAFPCaseCount,
-                "Total Zero Dose Count": totals.totalZeroDoseCount,
-                "Total Newborn Count": totals.totalNewbornCount,
-                "ucmo %":result.ucmoPercentage,
-                "aic %":result.aicPercentage,
-
-
-
-            };
-    
-            // Store the response in cache
-            myCache.set(cacheKey, responseData);
-    
-            return res.status(200).json(responseData);
-        } catch (error) {
-            return res.status(500).json({ message: error.message });
+        // Check if the data is already cached
+        const cachedData = myCache.get(cacheKey);
+        if (cachedData) {
+            return res.status(200).json(cachedData);
         }
-    };
-       
-    // const getDistinctUserIdsForCurrentDate = async () => {
-    //     // Get the current date's start and end in UTC
-    //     const startOfDayUTC = moment.utc().startOf('day');
-    //     const endOfDayUTC = moment.utc().endOf('day');
-      
-    //     console.log('Start of Day (UTC):', startOfDayUTC.toISOString());
-    //     console.log('End of Day (UTC):', endOfDayUTC.toISOString());
-      
-    //     try {
-    //       // Query for records created today in UTC
-    //       const collectedDataRecords = await CollectedData.find({
-    //         createdAt: { $gte: startOfDayUTC.toDate(), $lt: endOfDayUTC.toDate() }
-    //       });
-      
-    //       console.log('Collected Data Records:', collectedDataRecords);
-      
-    //       // Extract distinct userIds
-    //       const userIds = Array.from(new Set(collectedDataRecords.map(record => record.userId.toString())));
-    //       console.log('Distinct User IDs:', userIds);
-          
-    //       return userIds;
-    //     } catch (error) {
-    //       console.error("Error fetching collected data:", error);
-    //     }
-    //   };
+
+        // Parse the dates or default to the current date
+        const today = new Date();
+        const currentDate = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+        const start = startDate ? new Date(startDate) : new Date(currentDate);
+        const end = endDate ? new Date(endDate) : new Date(currentDate);
+
+        // Set time to the end of the day for end date
+        end.setHours(23, 59, 59, 999);
+
+        // Fetch collected data for the specified date range
+        const collectedDataArray = await CollectedData.find({
+            'campaignDetails.date': {
+                $gte: start.toISOString().split('T')[0],
+                $lte: end.toISOString().split('T')[0]
+            }
+        });
+
+        // Define cutoff time (8:30 AM)
+        const cutoffTime = new Date();
+        cutoffTime.setHours(8, 30, 0, 0); // Set time to 8:30 AM
+
+        // Call the reusable function to count teams
+        const { beforeCutoffCount, afterCutoffCount } = countTeamsByCutoff(collectedDataArray, cutoffTime);
+        const uniqueLockedHouseCount = countUniqueLockedHouses(collectedDataArray);
+        const refusalStats = getRefusalHouseStats(collectedDataArray);
+
+        // Total calculations
+        const school = getTotalVaccinatedStudents(collectedDataArray);
+        const street = getTotalStreetChildrenCount(collectedDataArray);
+        const guestChild = getTotalGuestChildrenCount(collectedDataArray);
+        const availableChild = getTotalAvailableChildrenCount(collectedDataArray);
+        const total = school + street + guestChild + availableChild;
 
 
 
-    const getDistinctUserIdsForCurrentDate = async () => {
-      // Get the current date's start and end in UTC
-      const startOfDayUTC = moment.utc().startOf('day');
-      const endOfDayUTC = moment.utc().endOf('day');
-    
-      console.log('Start of Day (UTC):', startOfDayUTC.toISOString());
-      console.log('End of Day (UTC):', endOfDayUTC.toISOString());
-    
-      try {
+        const totals = getTotalCounts(collectedDataArray);
+
+
+        const totalChildren = countNAChildren(collectedDataArray);
+        const totalChildrenWithUpdates = countNAChildrenCover(collectedDataArray);
+        const totalChildrenWithUpdates2 = countNAChildrenAfter2Pm(collectedDataArray);
+
+       const samedaynotvisit = totalChildren - totalChildrenWithUpdates;
+
+        const remaing = totalChildren - totalChildrenWithUpdates;
+
+
+        const totalUniqueHouses = countUniqueHousesCover(collectedDataArray);
+
+
+        const remaingHouse = uniqueLockedHouseCount - totalUniqueHouses
+
+
+        const res1 = countUniqueLockedHousesAfter2PM(collectedDataArray)
+
+
+        // Prepare the response
+        const responseData = {
+            "before 8:30": beforeCutoffCount,
+            "after 8:30": afterCutoffCount,
+            // NA children
+
+            "Total Na ": totalChildren,
+            "Cover same day Na ": totalChildrenWithUpdates,
+            "Remaining Na ": remaing,
+            "Not cover after 2pm day": samedaynotvisit,
+            "NA cover after 2 pm ": totalChildrenWithUpdates2,
+
+
+
+            "Total NA houses": uniqueLockedHouseCount,
+            "NA house cover same day ": totalUniqueHouses,
+            "Remaining Na House ": remaingHouse,
+            "Na housevisited after 2 pm ": res1,
+
+
+            "refusalStats": refusalStats,
+            "school": school,
+            "street": street,
+            "guestChild": guestChild,
+            "Children vaccinated at House": availableChild,
+
+
+            "total": total,
+
+            "Total AFP Case": totals.totalAFPCaseCount,
+            "Total Zero Dose Count": totals.totalZeroDoseCount,
+            "Total Newborn Count": totals.totalNewbornCount,
+
+            // "ucmo %":result.ucmoPercentage,
+            // "aic %":result.aicPercentage,
+
+
+
+        };
+
+        // Store the response in cache
+        myCache.set(cacheKey, responseData);
+
+        return res.status(200).json(responseData);
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+
+
+const getDistinctUserIdsForCurrentDate = async () => {
+    // Get the current date's start and end in UTC
+    const startOfDayUTC = moment.utc().startOf('day');
+    const endOfDayUTC = moment.utc().endOf('day');
+
+    console.log('Start of Day (UTC):', startOfDayUTC.toISOString());
+    console.log('End of Day (UTC):', endOfDayUTC.toISOString());
+
+    try {
         // Query for records created today in UTC
         const collectedDataRecords = await CollectedData.find({
-          createdAt: { $gte: startOfDayUTC.toDate(), $lt: endOfDayUTC.toDate() }
+            createdAt: { $gte: startOfDayUTC.toDate(), $lt: endOfDayUTC.toDate() }
         });
-    
-    
+
+
         // Extract distinct userIds from CollectedData
         const userIds = Array.from(new Set(collectedDataRecords.map(record => record.userId.toString())));
-    
+
         // Query Users based on the extracted user IDs
         const users = await User.find({
-          _id: { $in: userIds },
-          $or: [{ role: 'UCMO' }, { role: 'AIC' }]
+            _id: { $in: userIds },
+            $or: [{ role: 'UCMO' }, { role: 'AIC' }]
         });
-    
+
         // Create arrays for UCMO and AIC IDs from users
         const collectedUCMOIds = users.filter(user => user.role === 'UCMO').map(user => user._id.toString());
         const collectedAICIds = users.filter(user => user.role === 'AIC').map(user => user._id.toString());
-    
-       
-    
+
+
+
         // // Step 1: Retrieve teams
         // const teams = await Team.find({}); // Adjust the query as needed
-    
+
         // // Step 2: Extract distinct UCMO and AIC IDs from teams
         // const ucmoIdsFromTeams = new Set();
         // const aicIdsFromTeams = new Set();
-    
+
         // teams.forEach(team => {
         //   if (team.ucmo) {
         //     ucmoIdsFromTeams.add(team.ucmo.toString());
@@ -977,8 +990,8 @@ function getTotalAvailableChildrenCount(collectedDataArray) {
         //     aicIdsFromTeams.add(team.aic.toString());
         //   }
         // });
-    
-     
+
+
         // Get lengths of each array
         const collectedUCMOIdsLength = collectedUCMOIds.length;
         const collectedAICIdsLength = collectedAICIds.length;
@@ -989,25 +1002,24 @@ function getTotalAvailableChildrenCount(collectedDataArray) {
         const aicIdsFromTeamsLength = 930; // Use size for Set  923
 
 
-        const ucmoPercentage = ucmoIdsFromTeamsLength > 0 
-        ? ((collectedUCMOIdsLength / ucmoIdsFromTeamsLength) * 100).toFixed(2) 
-        : '0.00'; // Return '0.00' as a string for consistent formatting
-      
-      const aicPercentage = aicIdsFromTeamsLength > 0 
-        ? ((collectedAICIdsLength / aicIdsFromTeamsLength) * 100).toFixed(2) 
-        : '0.00'; // Similarly format AIC percentage
+        const ucmoPercentage = ucmoIdsFromTeamsLength > 0
+            ? ((collectedUCMOIdsLength / ucmoIdsFromTeamsLength) * 100).toFixed(2)
+            : '0.00'; // Return '0.00' as a string for consistent formatting
+
+        const aicPercentage = aicIdsFromTeamsLength > 0
+            ? ((collectedAICIdsLength / aicIdsFromTeamsLength) * 100).toFixed(2)
+            : '0.00'; // Similarly format AIC percentage
 
 
-    
+
         // Combine results including lengths
         return {
             ucmoPercentage,
             aicPercentage
-          
+
         };
-      } catch (error) {
+    } catch (error) {
         console.error("Error fetching collected data or users:", error);
-      }
-    };
-    
- 
+    }
+};
+
