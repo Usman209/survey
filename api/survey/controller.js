@@ -820,7 +820,7 @@ function getTotalAvailableChildrenCount(collectedDataArray) {
 }
 
 // Set up a cron job to clear the cache every 15 minutes
-const job = new cron.CronJob('*/30 * * * *', () => {
+const job = new cron.CronJob('*/50 * * * *', () => {
     myCache.flushAll();
 });
 job.start();
