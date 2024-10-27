@@ -191,11 +191,47 @@ const handleFLW = async (entry, res) => {
 };
 
 
+// exports.syncCollectedData = async (req, res) => {
+//     try {
+
+//         console.log(req.body);
+
+//         const collectedDataArray = req.body; // Array of collected data from the mobile app
+
+//         // Check if the collected data array is empty
+//         if (!Array.isArray(collectedDataArray) || collectedDataArray.length === 0) {
+//             return res.status(400).json({ message: 'Data is empty. Please add survey data first before syncing.' });
+//         }
+
+//         // Log the incoming data for debugging
+//         console.log('Collected Data Array:', JSON.stringify(collectedDataArray, null, 2));
+
+//         const userRole = collectedDataArray[0].userData.role; // Assuming role is in userData
+
+//         if (userRole === 'AIC' || userRole === 'UCMO') {
+//             await handleAICUCMO(collectedDataArray);
+//         } else if (userRole === 'FLW') {
+//             for (const entry of collectedDataArray) {
+//                 await handleFLW(entry, res);
+//             }
+//         } else {
+//             return res.status(400).json({ message: 'Invalid user role.' });
+//         }
+
+//         return sendResponse(res, 200, "Data synced successfully.");
+//     } catch (error) {
+//         console.error('Error syncing data:', error);
+//         return res.status(500).json({ message: error.message });
+//     }
+// };
+
+
+
+
+
 exports.syncCollectedData = async (req, res) => {
     try {
-
         console.log(req.body);
-
         const collectedDataArray = req.body; // Array of collected data from the mobile app
 
         // Check if the collected data array is empty
@@ -208,22 +244,38 @@ exports.syncCollectedData = async (req, res) => {
 
         const userRole = collectedDataArray[0].userData.role; // Assuming role is in userData
 
+        // Call the background processing function without waiting
+        processCollectedData(collectedDataArray, userRole);
+
+        // Send the response immediately
+        return sendResponse(res, 200, "Data submitted successfully.");
+
+    } catch (error) {
+        console.error('Error processing request:', error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+
+// Background processing function
+const processCollectedData = async (collectedDataArray, userRole) => {
+    try {
         if (userRole === 'AIC' || userRole === 'UCMO') {
             await handleAICUCMO(collectedDataArray);
         } else if (userRole === 'FLW') {
             for (const entry of collectedDataArray) {
-                await handleFLW(entry, res);
+                await handleFLW(entry);
             }
         } else {
-            return res.status(400).json({ message: 'Invalid user role.' });
+            console.error('Invalid user role:', userRole);
+            // Optional: handle invalid user role error
         }
-
-        return sendResponse(res, 200, "Data synced successfully.");
     } catch (error) {
         console.error('Error syncing data:', error);
-        return res.status(500).json({ message: error.message });
+        // Optional: handle the error without affecting client response
     }
 };
+
+
 
 
 
