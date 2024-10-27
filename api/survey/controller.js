@@ -182,7 +182,7 @@ const handleFLW = async (entry, res) => {
 
         // Save the record
         await collectedData.save();
-        return res.status(200).json({ message: 'Data processed successfully.' });
+        // return res.status(200).json({ message: 'Data processed successfully.' });
 
     } catch (error) {
         console.error('Error handling FLW entry:', error);
