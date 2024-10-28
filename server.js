@@ -7,6 +7,7 @@ const helmet = require("helmet");
 const cors = require("cors");
 const bodyParser = require('body-parser');
 require("dotenv").config();
+const { useApitally } = require("apitally/express");
 
 const redisClient = require('./config/redis.js'); // Adjust the path based on your file structure
 
@@ -18,6 +19,12 @@ let { dbConnection } = require("./lib/utils/connection.js");
 app.set('view engine', 'ejs');
 app.use(bodyParser.json());
 app.use('/uploads', express.static('uploads'));
+
+
+useApitally(app, {
+  clientId: "557d450f-4895-418d-ac88-eff2877d9798",
+  env: "dev", // or "prod" etc.
+});
 
 // Session middleware with Redis
 const sessionStore = new RedisStore({ client: redisClient });
