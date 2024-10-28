@@ -329,7 +329,7 @@ exports.getAllFLWs = async (req, res) => {
       };
     }));
 
-    await redisClient.set(cacheKey, JSON.stringify(enrichedFLWs), 'EX', 3600); // Set expiration time in seconds
+    await redisClient.set(cacheKey, JSON.stringify(enrichedFLWs)); // Set expiration time in seconds
     return sendResponse(res, EResponseCode.SUCCESS, "FLW list", enrichedFLWs);
   } catch (err) {
     console.error("Error fetching FLWs:", err);
@@ -351,7 +351,7 @@ exports.getAllUCMOs = async (req, res) => {
       .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role');
 
-    await redisClient.set(cacheKey, JSON.stringify(ucmos), 'EX', 3600);
+    await redisClient.set(cacheKey, JSON.stringify(ucmos));
     return sendResponse(res, EResponseCode.SUCCESS, "UCMO list", ucmos);
   } catch (err) {
     return errReturned(res, err);
@@ -372,7 +372,7 @@ exports.getAllAdmins = async (req, res) => {
       .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role');
 
-    await redisClient.set(cacheKey, JSON.stringify(admins), 'EX', 3600);
+    await redisClient.set(cacheKey, JSON.stringify(admins));
     return sendResponse(res, EResponseCode.SUCCESS, "Admin list", admins);
   } catch (err) {
     return errReturned(res, err);
@@ -410,7 +410,7 @@ exports.getAllAICs = async (req, res) => {
     });
 
     // Cache the enriched AICs
-    await redisClient.set(cacheKey, JSON.stringify(enrichedAICs), 'EX', 3600);
+    await redisClient.set(cacheKey, JSON.stringify(enrichedAICs));
     return sendResponse(res, EResponseCode.SUCCESS, "AIC list", enrichedAICs);
   } catch (err) {
     console.error("Error fetching AICs:", err);
