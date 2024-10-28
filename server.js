@@ -22,7 +22,7 @@ app.use('/uploads', express.static('uploads'));
 
 
 useApitally(app, {
-  clientId: "557d450f-4895-418d-ac88-eff2877d9798",
+  clientId: "579ffc9c-b5f6-4464-b0d9-e896ab97a4d0",
   env: "dev", // or "prod" etc.
 });
 
