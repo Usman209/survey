@@ -6,130 +6,82 @@ const mongoose = require('mongoose');
 const Team = require('../../lib/schema/team.schema');
 const User = require('../../lib/schema/users.schema');
 
-
 const NodeCache = require('node-cache');
 const cron = require('cron');
 
 // Create a cache instance
 const myCache = new NodeCache({ stdTTL: 900 }); // Cache for 15 minutes
 
+const Queue = require('bull');
 
+// Redis configuration
+const redisOptions = {
+    host: 'localhost', // Your Redis server host
+    port: 6379,       // Your Redis server port
+    // password: 'yourpassword', // Uncomment and set if your Redis server requires authentication
+};
 
-// Helper function for AIC and UCMO roles
-const handleAICUCMO = async (collectedDataArray) => {
-    // Check if the collected data array is empty
-    if (!Array.isArray(collectedDataArray) || collectedDataArray.length === 0) {
-        throw new Error('Data is empty. Please add survey data first before syncing.');
-    }
+const flwQueue = new Queue('flwQueue', { redis: redisOptions });
 
+// Process jobs in the queue
+flwQueue.process(async (job) => {
+    const { collectedDataArray, userRole } = job.data;
+    await processCollectedData(collectedDataArray, userRole);
+});
 
+exports.syncCollectedData = async (req, res) => {
+    try {
+        const collectedDataArray = req.body; // Array of collected data from the mobile app
 
-    // Extract the first UCMOCampaign entry
-    const ucmoCampaign = collectedDataArray[0].UCMOCampaign;
-
-    if (!Array.isArray(ucmoCampaign) || ucmoCampaign.length === 0) {
-        throw new Error('UCMOCampaign is empty. Please add campaign data first.');
-    }
-
-    // Assuming you want to use the first campaign entry
-    const campaignDetails = ucmoCampaign[0];
-
-    // Extracting campaign details
-    const { teamNumber, UCMOName, UCMOId, workDay } = campaignDetails; // Get workDay
-
-    // Validate the day value
-    if (!workDay || typeof workDay !== 'string') {
-        console.error('Invalid campaign day:', workDay);
-        throw new Error('Invalid campaign day value. It must be a non-empty string.');
-    }
-
-    for (const entry of collectedDataArray) {
-        const { userData, data, date } = entry;
-        const userId = userData.id; // Extract userId from userData
-
-        // Find or create collected data record
-        let collectedData = await CollectedData.findOne({
-            userId,
-            'campaignDetails.campaignName': campaignDetails.campaignName,
-            'campaignDetails.teamNumber': teamNumber
-        });
-
-        if (!collectedData) {
-            collectedData = new CollectedData({
-                userId,
-                submissions: [],
-                submissionIndex: {},
-                campaignDetails: {
-                    teamNumber,
-                    campaignName: campaignDetails.campaignName,
-                    UC: campaignDetails.UC,
-                    UCMOName,
-                    UCMOId,
-                    day: workDay, // Ensure this is the correct value
-                    date: campaignDetails.date,
-                    areaName: campaignDetails.areaName,
-                    campaignType: campaignDetails.campaignType,
-                }
-            });
+        // Check if the collected data array is empty
+        if (!Array.isArray(collectedDataArray) || collectedDataArray.length === 0) {
+            return res.status(400).json({ message: 'Data is empty. Please add survey data first before syncing.' });
         }
 
-        await processSubmission(collectedData, data, date);
+        const userRole = collectedDataArray[0].userData.role; // Assuming role is in userData
+
+        // Add the processing task to the queue
+        await flwQueue.add({ collectedDataArray, userRole });
+
+        // Send the response immediately
+        return res.status(202).json({ message: 'Data is being processed.' });
+
+    } catch (error) {
+        console.error('Error processing request:', error);
+        return res.status(500).json({ message: error.message });
     }
 };
 
-// Function to process submissions
-const processSubmission = async (collectedData, data, date) => {
-    const submittedAtDate = new Date(date);
-    const submittedAtString = submittedAtDate.toISOString().split('T')[0]; // YYYY-MM-DD format
-
-    // Check for existing submission
-    const existingSubmissionsForDate = collectedData.submissions.filter(submission => {
-        const submissionDateStr = submission.submittedAt.toISOString().split('T')[0];
-        return submissionDateStr === submittedAtString;
-    });
-
-    // Check if the data is the same
-    const existingSubmission = existingSubmissionsForDate.find(submission => {
-        return JSON.stringify(submission.data) === JSON.stringify(data);
-    });
-
-    // If it exists, skip adding it
-    if (!existingSubmission) {
-        collectedData.submissions.push({ data, submittedAt: submittedAtDate });
-
-        // Initialize submissionIndex if it doesn't exist
-        if (!collectedData.submissionIndex) {
-            collectedData.submissionIndex = {};
+const processCollectedData = async (collectedDataArray, userRole) => {
+    try {
+        if (userRole === 'AIC' || userRole === 'UCMO') {
+            await handleAICUCMO(collectedDataArray);
+        } else if (userRole === 'FLW') {
+            // Process each entry in parallel
+            await Promise.all(collectedDataArray.map(entry => handleFLW(entry)));
+        } else {
+            console.error('Invalid user role:', userRole);
         }
-
-        if (!collectedData.submissionIndex[submittedAtString]) {
-            collectedData.submissionIndex[submittedAtString] = [];
-        }
-
-        // Store index of new submission
-        collectedData.submissionIndex[submittedAtString].push(collectedData.submissions.length - 1);
+    } catch (error) {
+        console.error('Error syncing data:', error);
+        // Optional: Handle error logging or notifications here
     }
-
-    // Save the record
-    await collectedData.save();
 };
 
-const handleFLW = async (entry, res) => {
+const handleFLW = async (entry) => {
     try {
         let { userData, data, campaign, date } = entry;
 
         // Check for required fields
         if (!userData || !data || !campaign) {
-            return res.status(400).json({ message: 'Missing required fields.' });
+            throw new Error('Missing required fields.');
         }
 
         const userId = userData.id; // Extract userId from userData
         const { teamNumber, campaignName, day } = campaign;
 
         // Validate the day value
-        if (!day || typeof day !== 'string') {
-            day = '4'; // Default value
-        }
+        const validDay = (day && typeof day === 'string') ? day : '4'; // Default value
 
         // Find or create collected data
         let collectedData = await CollectedData.findOne({
@@ -146,14 +98,89 @@ const handleFLW = async (entry, res) => {
                 UC: campaign.UC,
                 UCMOName: campaign.UCMOName,
                 AICName: campaign.AICName,
-                day,
+                day: validDay,
                 date: campaign.date,
                 areaName: campaign.areaName,
                 campaignType: campaign.campaignType,
             }
         });
 
-        // Check for existing submissions for the date
+        // Process the submission
+        await processSubmission(collectedData, data, date);
+
+    } catch (error) {
+        console.error('Error handling FLW entry:', error);
+        // Optional: Handle the error without affecting the overall process
+    }
+};
+
+const handleAICUCMO = async (collectedDataArray) => {
+    try {
+        // Check if the collected data array is empty
+        if (!Array.isArray(collectedDataArray) || collectedDataArray.length === 0) {
+            throw new Error('Data is empty. Please add survey data first before syncing.');
+        }
+
+        const ucmoCampaign = collectedDataArray[0].UCMOCampaign;
+
+        if (!Array.isArray(ucmoCampaign) || ucmoCampaign.length === 0) {
+            throw new Error('UCMOCampaign is empty. Please add campaign data first.');
+        }
+
+        const campaignDetails = ucmoCampaign[0];
+        const { teamNumber, UCMOName, UCMOId, workDay } = campaignDetails;
+
+        if (!workDay || typeof workDay !== 'string') {
+            console.error('Invalid campaign day:', workDay);
+            throw new Error('Invalid campaign day value. It must be a non-empty string.');
+        }
+
+        // Collect all promises to handle multiple queries at once
+        const promises = collectedDataArray.map(async (entry) => {
+            const { userData, data, date } = entry;
+            const userId = userData.id;
+
+            // Initiate query but don't await it immediately
+            const collectedDataPromise = CollectedData.findOne({
+                userId,
+                'campaignDetails.campaignName': campaignDetails.campaignName,
+                'campaignDetails.teamNumber': teamNumber
+            });
+
+            // Process the data as soon as we have the result
+            const collectedData = await collectedDataPromise || new CollectedData({
+                userId,
+                submissions: [],
+                submissionIndex: {},
+                campaignDetails: {
+                    teamNumber,
+                    campaignName: campaignDetails.campaignName,
+                    UC: campaignDetails.UC,
+                    UCMOName,
+                    UCMOId,
+                    day: workDay,
+                    date: campaignDetails.date,
+                    areaName: campaignDetails.areaName,
+                    campaignType: campaignDetails.campaignType,
+                }
+            });
+
+            // Process the submission
+            await processSubmission(collectedData, data, date);
+        });
+
+        // Await all the promises to ensure all entries are processed
+        await Promise.all(promises);
+
+    } catch (error) {
+        console.error('Error handling AIC/UCMO data:', error);
+        // Optional: Handle the error without affecting the overall process
+    }
+};
+
+// Define the processSubmission function
+const processSubmission = async (collectedData, data, date) => {
+    try {
         const submittedAtDate = new Date(date);
         const submittedAtString = submittedAtDate.toISOString().split('T')[0];
 
@@ -181,93 +208,10 @@ const handleFLW = async (entry, res) => {
 
         // Save the record
         await collectedData.save();
-        // return res.status(200).json({ message: 'Data processed successfully.' });
 
     } catch (error) {
-        console.error('Error handling FLW entry:', error);
-        return res.status(500).json({ message: error.message });
-    }
-};
-
-
-// exports.syncCollectedData = async (req, res) => {
-//     try {
-
-//         console.log(req.body);
-
-//         const collectedDataArray = req.body; // Array of collected data from the mobile app
-
-//         // Check if the collected data array is empty
-//         if (!Array.isArray(collectedDataArray) || collectedDataArray.length === 0) {
-//             return res.status(400).json({ message: 'Data is empty. Please add survey data first before syncing.' });
-//         }
-
-//         // Log the incoming data for debugging
-//         console.log('Collected Data Array:', JSON.stringify(collectedDataArray, null, 2));
-
-//         const userRole = collectedDataArray[0].userData.role; // Assuming role is in userData
-
-//         if (userRole === 'AIC' || userRole === 'UCMO') {
-//             await handleAICUCMO(collectedDataArray);
-//         } else if (userRole === 'FLW') {
-//             for (const entry of collectedDataArray) {
-//                 await handleFLW(entry, res);
-//             }
-//         } else {
-//             return res.status(400).json({ message: 'Invalid user role.' });
-//         }
-
-//         return sendResponse(res, 200, "Data synced successfully.");
-//     } catch (error) {
-//         console.error('Error syncing data:', error);
-//         return res.status(500).json({ message: error.message });
-//     }
-// };
-
-
-
-
-
-exports.syncCollectedData = async (req, res) => {
-    try {
-        const collectedDataArray = req.body; // Array of collected data from the mobile app
-
-        // Check if the collected data array is empty
-        if (!Array.isArray(collectedDataArray) || collectedDataArray.length === 0) {
-            return res.status(400).json({ message: 'Data is empty. Please add survey data first before syncing.' });
-        }
-
-
-        const userRole = collectedDataArray[0].userData.role; // Assuming role is in userData
-
-        // Call the background processing function without waiting
-        processCollectedData(collectedDataArray, userRole);
-
-        // Send the response immediately
-        return sendResponse(res, 200, "Data submitted successfully.");
-
-    } catch (error) {
-        console.error('Error processing request:', error);
-        return res.status(500).json({ message: error.message });
-    }
-};
-
-// Background processing function
-const processCollectedData = async (collectedDataArray, userRole) => {
-    try {
-        if (userRole === 'AIC' || userRole === 'UCMO') {
-            await handleAICUCMO(collectedDataArray);
-        } else if (userRole === 'FLW') {
-            for (const entry of collectedDataArray) {
-                await handleFLW(entry);
-            }
-        } else {
-            console.error('Invalid user role:', userRole);
-            // Optional: handle invalid user role error
-        }
-    } catch (error) {
-        console.error('Error syncing data:', error);
-        // Optional: handle the error without affecting client response
+        console.error('Error processing submission:', error);
+        // Optional: Handle the error without affecting the overall process
     }
 };
 
@@ -308,44 +252,6 @@ const isValidDate = (dateString) => {
     const date = new Date(dateString);
     return !isNaN(date.getTime());
 };
-
-// const getRevisitedLockedHousesInfo = (collectedDataArray) => {
-//     const uniqueRevisitedHouses = new Set();
-//     const revisitedHousesDetails = [];
-//     const currentDate = new Date().toISOString().split('T')[0]; // Current date in YYYY-MM-DD format
-
-//     for (const entry of collectedDataArray) {
-//         for (const submission of entry.submissions) {
-//             const houses = submission.data.houses;
-
-//             for (const house of houses) {
-//                 const addedAtDate = house.addedAt ? new Date(house.addedAt).toISOString().split('T')[0] : null;
-//                 const updatedAtDate = house.updatedAt ? new Date(house.updatedAt).toISOString().split('T')[0] : null;
-
-//                 // Check if the house type is 'locked' and added/updated today
-//                 if (house.houseType === 'locked' && (addedAtDate === currentDate || updatedAtDate === currentDate)) {
-//                     if (!uniqueRevisitedHouses.has(house.id)) {
-//                         uniqueRevisitedHouses.add(house.id);
-//                         revisitedHousesDetails.push(house); // Add the house details
-//                     }
-//                 }
-
-//                 // Check if the house was first 'locked' and updated to a different status today
-//                 if (house.previousHouseType === 'locked' && updatedAtDate === currentDate && house.houseType !== 'locked') {
-//                     if (!uniqueRevisitedHouses.has(house.id)) {
-//                         uniqueRevisitedHouses.add(house.id);
-//                         revisitedHousesDetails.push(house); // Add the house details
-//                     }
-//                 }
-//             }
-//         }
-//     }
-
-//     return {
-//         count: revisitedHousesDetails.length, // Count of revisited houses
-//         details: revisitedHousesDetails // Array of house details
-//     };
-// };
 
 
 const getNotVisitedLockedHousesInfo = (collectedDataArray) => {
