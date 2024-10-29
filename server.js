@@ -20,9 +20,15 @@ app.set('view engine', 'ejs');
 app.use(bodyParser.json());
 app.use('/uploads', express.static('uploads'));
 
-app.use(bodyParser.json({ limit: '20mb' })); // Set limit to 10 MB
-app.use(bodyParser.urlencoded({ limit: '20mb', extended: true }));
+app.use(bodyParser.json({limit: '35mb'}));
 
+app.use(
+  bodyParser.urlencoded({
+    extended: true,
+    limit: '35mb',
+    parameterLimit: 50000,
+  }),
+);
 
 useApitally(app, {
   clientId: "579ffc9c-b5f6-4464-b0d9-e896ab97a4d0",
