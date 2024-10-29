@@ -43,17 +43,21 @@ exports.syncCollectedData = async (req, res) => {
 
         const userRole = collectedDataArray[0].userData.role; // Assuming role is in userData
 
-        // Add the processing task to the queue
-        await flwQueue.add({ collectedDataArray, userRole });
+        // Process in smaller batches if necessary
+        const batchSize = 100; // Example batch size
+        for (let i = 0; i < collectedDataArray.length; i += batchSize) {
+            const batch = collectedDataArray.slice(i, i + batchSize);
+            await flwQueue.add({ collectedDataArray: batch, userRole }); // Add batch to the queue
+        }
 
-        // Send the response immediately
-        return res.status(202).json({ message: 'Data is being processed.' });
+        return res.status(202).json({ message: 'Data is being processed in batches.' });
 
     } catch (error) {
         console.error('Error processing request:', error);
         return res.status(500).json({ message: error.message });
     }
 };
+
 
 const processCollectedData = async (collectedDataArray, userRole) => {
     try {
