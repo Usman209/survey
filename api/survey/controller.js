@@ -23,11 +23,12 @@ const redisOptions = {
 
 const flwQueue = new Queue('flwQueue', { redis: redisOptions });
 
-// Process jobs in the queue
-flwQueue.process(async (job) => {
+
+flwQueue.process(5, async (job) => {
     const { collectedDataArray, userRole } = job.data;
     await processCollectedData(collectedDataArray, userRole);
 });
+
 
 exports.syncCollectedData = async (req, res) => {
     try {
