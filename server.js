@@ -20,7 +20,7 @@ app.set('view engine', 'ejs');
 app.use(bodyParser.json());
 app.use('/uploads', express.static('uploads'));
 
-aapp.use(express.json({limit: "10mb", extended: true}))
+app.use(express.json({limit: "10mb", extended: true}))
 app.use(express.urlencoded({limit: "10mb", extended: true, parameterLimit: 50000}))
 
 
