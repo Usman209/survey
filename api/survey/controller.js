@@ -18,13 +18,15 @@ const Queue = require('bull');
 const redisOptions = {
     host: 'localhost', // Your Redis server host
     port: 6379,       // Your Redis server port
-    // password: 'yourpassword', // Uncomment and set if your Redis server requires authentication
+    lifo: false,
+    removeOnComplete: true,
+    removeOnFail: true
 };
 
 const flwQueue = new Queue('flwQueue', { redis: redisOptions });
 
 
-flwQueue.process(5, async (job) => {
+flwQueue.process(2, async (job) => {
     const { collectedDataArray, userRole } = job.data;
     await processCollectedData(collectedDataArray, userRole);
 });
@@ -56,11 +58,11 @@ exports.syncCollectedData = async (req, res) => {
 const processCollectedData = async (collectedDataArray, userRole) => {
     try {
         if (userRole === 'AIC' || userRole === 'UCMO') {
-            await handleAICUCMO(collectedDataArray);
+            await Promise.all(collectedDataArray.map(entry => handleAICUCMO(entry))); // Process AIC/UCMO in parallel
         } else if (userRole === 'FLW') {
-            // Process each entry in parallel
-            await Promise.all(collectedDataArray.map(entry => handleFLW(entry)));
-        } else {
+            await Promise.all(collectedDataArray.map(entry => handleFLW(entry))); // Process FLW entries in parallel
+        }
+         else {
             console.error('Invalid user role:', userRole);
         }
     } catch (error) {
