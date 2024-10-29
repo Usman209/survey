@@ -20,29 +20,6 @@ app.set('view engine', 'ejs');
 app.use(bodyParser.json());
 app.use('/uploads', express.static('uploads'));
 
-app.use(express.json({limit: "50mb", extended: true}))
-app.use(express.urlencoded({limit: "50mb", extended: true, parameterLimit: 50000}))
-
-
-app.use((req, res, next) => {
-  // Listen for the 'data' event to get the payload size
-  let body = '';
-  req.on('data', chunk => {
-      body += chunk.toString();
-  });
-
-  req.on('end', () => {
-      const payloadSize = Buffer.byteLength(body); // Get the size in bytes
-      console.log(`Incoming payload size: ${payloadSize} bytes`);
-
-      // Optionally, you can also log the payload itself (caution with sensitive data)
-      // console.log(`Incoming payload: ${body}`);
-
-      next(); // Call the next middleware
-  });
-});
-
-
 
 useApitally(app, {
   clientId: "579ffc9c-b5f6-4464-b0d9-e896ab97a4d0",
@@ -69,7 +46,7 @@ dbConnection()
   });
 
 app.use(express.urlencoded({ extended: false }));
-// app.use(express.json());
+app.use(express.json());
 app.use(morgan("dev"));
 app.use(helmet());
 
