@@ -39,7 +39,7 @@ const bullMasterApp = bullMaster({
   
 
 
-flwQueue.process(2, async (job) => {
+flwQueue.process(5, async (job) => {
     const { collectedDataArray, userRole } = job.data;
     await processCollectedData(collectedDataArray, userRole);
 });
