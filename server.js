@@ -1,83 +1,84 @@
 const express = require("express");
 const session = require("express-session");
 const passport = require('passport');
-const RedisStore = require('connect-redis').default; // Use Redis store for sessions
+const RedisStore = require('connect-redis').default;
 const morgan = require("morgan");
 const helmet = require("helmet");
 const cors = require("cors");
 const bodyParser = require('body-parser');
-require("dotenv").config();
 const { useApitally } = require("apitally/express");
-
+const Queue = require('bull');
 const redisClient = require('./config/redis.js'); // Adjust the path based on your file structure
+require("dotenv").config();
 
+const { bullMasterApp } = require('./api/survey/controller'); // Destructure to get bullMasterApp
+
+
+
+
+// Load configuration
 const { HOST, PORT, SESS_SECRET } = require("./config/config");
 
-
 const app = express();
+const { dbConnection } = require("./lib/utils/connection.js");
 
-app.use(express.json({limit: '50mb'}));
-app.use(express.urlencoded({limit: '50mb', extended: true, parameterLimit: 50000}));
-
-
-let { dbConnection } = require("./lib/utils/connection.js");
-
+// View engine setup
 app.set('view engine', 'ejs');
 app.use(bodyParser.json());
 app.use('/uploads', express.static('uploads'));
 
+app.use('/admin/queues', bullMasterApp)
 
+// Initialize Apitally
 useApitally(app, {
-  clientId: "579ffc9c-b5f6-4464-b0d9-e896ab97a4d0",
-  env: "dev", // or "prod" etc.
+    clientId: "579ffc9c-b5f6-4464-b0d9-e896ab97a4d0",
+    env: "dev",
 });
 
-// Session middleware with Redis
+
+
+
+// Set up Redis session store
 const sessionStore = new RedisStore({ client: redisClient });
 
+// Session middleware
 const MAX_AGE = 1000 * 60 * 60 * 3; // Three hours
 app.use(session({
-  store: sessionStore,
-  secret: SESS_SECRET,
-  saveUninitialized: true,
-  cookie: { maxAge: MAX_AGE },
-  resave: false
+    store: sessionStore,
+    secret: SESS_SECRET,
+    saveUninitialized: true,
+    cookie: { maxAge: MAX_AGE },
+    resave: false
 }));
 
 // Database connection
 dbConnection()
-  .then(() => console.log('DB connected'))
-  .catch((err) => {
-    console.log("Error in connection:", err);
-  });
+    .then(() => console.log('DB connected'))
+    .catch((err) => console.log("Error in connection:", err));
 
+// Middleware setup
 app.use(express.urlencoded({ extended: false }));
-// app.use(express.json());
 app.use(morgan("dev"));
 app.use(helmet());
+app.use(cors({ origin: "*", credentials: true, optionsSuccessStatus: 200 }));
 
-
-
-
-const corsOptions = {
-  origin: "*",
-  credentials: true,
-  optionsSuccessStatus: 200,
-};
-app.use(cors(corsOptions));
-
+// Routes
 app.get("/", (req, res) => {
-  res.send("API Running");
+    res.send("API Running");
 });
 
 // Import routes
 require("./routes")(app);
 
+// Bull Master for admin interface
+// app.use('/admin/queues', bullMasterApp);
+
 // Create server
-let server = require("http").createServer(app);
+const server = require("http").createServer(app);
 
 // Start listening
 server.listen(PORT, () => {
-  console.log(`Server is listening on port ${PORT}`);
+    console.log(`Server is listening on port ${PORT}`);
 });
+
 

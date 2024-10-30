@@ -8,6 +8,8 @@ const User = require('../../lib/schema/users.schema');
 
 const NodeCache = require('node-cache');
 const cron = require('cron');
+const bullMaster = require('bull-master');
+
 
 // Create a cache instance
 const myCache = new NodeCache({ stdTTL: 900 }); // Cache for 15 minutes
@@ -24,6 +26,17 @@ const redisOptions = {
 };
 
 const flwQueue = new Queue('flwQueue', { redis: redisOptions });
+
+
+
+const bullMasterApp = bullMaster({
+    queues: [flwQueue],
+  })
+  // you can get existing queues
+  bullMasterApp.getQueues()
+  // you could also choose to change the queues to display in run time
+  bullMasterApp.setQueues([flwQueue])
+  
 
 
 flwQueue.process(2, async (job) => {
@@ -985,3 +998,5 @@ const getDistinctUserIdsForCurrentDate = async () => {
     }
 };
 
+
+exports.bullMasterApp = bullMasterApp;
