@@ -855,6 +855,9 @@ exports.getCollectedData = async (req, res) => {
         const res1 = countUniqueLockedHousesAfter2PM(collectedDataArray)
 
 
+        const na=remaing-totalChildrenWithUpdates2
+
+
         // Prepare the response
         const responseData = {
             "before 8:30": beforeCutoffCount,
@@ -864,7 +867,7 @@ exports.getCollectedData = async (req, res) => {
             "Total Na ": totalChildren,
             "Cover same day Na ": totalChildrenWithUpdates,
             "Remaining Na ": remaing,
-            "Not cover after 2pm day": samedaynotvisit,
+            "Not cover after 2pm day": na,
             "NA cover after 2 pm ": totalChildrenWithUpdates2,
 
 
