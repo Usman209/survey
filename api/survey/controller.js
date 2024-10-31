@@ -57,7 +57,7 @@ exports.syncCollectedData = async (req, res) => {
         const userRole = collectedDataArray[0].userData.role; // Assuming role is in userData
 
         // Process in smaller batches if necessary
-        const batchSize = 50; // Example batch size
+        const batchSize = 30; // Example batch size
         for (let i = 0; i < collectedDataArray.length; i += batchSize) {
             const batch = collectedDataArray.slice(i, i + batchSize);
             await flwQueue.add({ collectedDataArray: batch, userRole }); // Add batch to the queue
