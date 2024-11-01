@@ -11,6 +11,8 @@ const Queue = require('bull');
 const redisClient = require('./config/redis.js'); // Adjust the path based on your file structure
 require("dotenv").config();
 
+const logger = require('./lib/utils/logger.js');
+
 const { bullMasterApp } = require('./api/survey/controller'); // Destructure to get bullMasterApp
 
 
@@ -23,6 +25,27 @@ const app = express();
 
 app.use(express.json({limit: '50mb'}));
 app.use(express.urlencoded({limit: '50mb', extended: true, parameterLimit: 50000}));
+
+app.use((req, res, next) => {
+    logger.info(`${req.method} ${req.url}`); // Log requests
+    next();
+});
+
+
+app.use((err, req, res, next) => {
+    // Log detailed error information
+    logger.error({
+        message: err.message,
+        status: err.status || 500,
+        stack: err.stack,
+        method: req.method,
+        url: req.originalUrl,
+    }, 'An error occurred');
+
+    // Respond with a generic message
+    res.status(err.status || 500).send('Internal Server Error');
+});
+
 
 
 const { dbConnection } = require("./lib/utils/connection.js");
