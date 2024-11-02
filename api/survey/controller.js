@@ -41,7 +41,7 @@ const bullMasterApp = bullMaster({
   bullMasterApp.setQueues([flwQueue])
   
 
-  const MAX_FILE_SIZE = 100 * 1024 * 1024; // 5MB
+  const MAX_FILE_SIZE = 500 * 1024 * 1024; // 5MB
   let currentFileIndex = 1;
   let currentFileSize = 0;
   let currentDataBatch = [];
