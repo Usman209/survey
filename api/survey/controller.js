@@ -9,6 +9,9 @@ const User = require('../../lib/schema/users.schema');
 const NodeCache = require('node-cache');
 const cron = require('cron');
 const bullMaster = require('bull-master');
+const fs = require('fs');
+const path = require('path');
+
 
 
 // Create a cache instance
@@ -37,6 +40,33 @@ const bullMasterApp = bullMaster({
   // you could also choose to change the queues to display in run time
   bullMasterApp.setQueues([flwQueue])
   
+
+  const MAX_FILE_SIZE = 100 * 1024 * 1024; // 5MB
+  let currentFileIndex = 1;
+  let currentFileSize = 0;
+  let currentDataBatch = [];
+  
+  const writeDataToFile = async (data) => {
+      const filePath = path.join(__dirname, `collectedData_${new Date().toISOString().split('T')[0]}_${String(currentFileIndex).padStart(3, '0')}.json`);
+      
+      const dataString = JSON.stringify(data, null, 2);
+      const dataSize = Buffer.byteLength(dataString, 'utf8');
+  
+      if (currentFileSize + dataSize > MAX_FILE_SIZE) {
+          currentFileIndex++;
+          currentFileSize = 0;
+          currentDataBatch = []; // Reset current batch
+      }
+  
+      currentDataBatch.push(data);
+      currentFileSize += dataSize;
+  
+      // Write to file
+      fs.writeFileSync(filePath, JSON.stringify(currentDataBatch, null, 2));
+  };
+
+
+
 
 
 flwQueue.process(10, async (job) => {
@@ -198,7 +228,7 @@ const handleAICUCMO = async (collectedDataArray) => {
     }
 };
 
-// Define the processSubmission function
+
 const processSubmission = async (collectedData, data, date) => {
     try {
         const submittedAtDate = new Date(date);
@@ -208,6 +238,8 @@ const processSubmission = async (collectedData, data, date) => {
         if (!collectedData.submissionIndex) {
             collectedData.submissionIndex = {};
         }
+
+        await writeDataToFile({ collectedData: collectedData.toObject(), data, date });
 
         // Check for existing submission
         const existingSubmission = collectedData.submissions.find(submission => {
@@ -224,6 +256,9 @@ const processSubmission = async (collectedData, data, date) => {
                 collectedData.submissionIndex[submittedAtString] = [];
             }
             collectedData.submissionIndex[submittedAtString].push(collectedData.submissions.length - 1);
+
+            // Write data to file
+            // await writeDataToFile({ collectedData: collectedData.toObject(), data, date });
         }
 
         // Save the record
