@@ -46,30 +46,39 @@ const bullMasterApp = bullMaster({
   let currentFileSize = 0;
   let currentDataBatch = [];
   
-  const writeDataToFile = async (data) => {
-      const filePath = path.join(__dirname, `collectedData_${new Date().toISOString().split('T')[0]}_${String(currentFileIndex).padStart(3, '0')}.json`);
-      
-      const dataString = JSON.stringify(data, null, 2);
-      const dataSize = Buffer.byteLength(dataString, 'utf8');
+// Helper function to write data to a file
+const writeDataToFile = async ({ collectedData, data, date }) => {
   
-      if (currentFileSize + dataSize > MAX_FILE_SIZE) {
-          currentFileIndex++;
-          currentFileSize = 0;
-          currentDataBatch = []; // Reset current batch
-      }
-  
-      currentDataBatch.push(data);
-      currentFileSize += dataSize;
-  
-      // Write to file
-      fs.writeFileSync(filePath, JSON.stringify(currentDataBatch, null, 2));
-  };
+    const filePath = path.join(__dirname, 'data.json'); // Adjust the path as needed
+
+    try {
+        // Read existing data
+        let fileData = [];
+        if (fs.existsSync(filePath)) {
+            const rawData = fs.readFileSync(filePath);
+            fileData = JSON.parse(rawData);
+        }
+
+        // Add new data entry
+        fileData.push({
+            userId: collectedData.userId,
+            submissions: collectedData.submissions,
+            campaignDetails: collectedData.campaignDetails,
+            createdAt: collectedData.createdAt,
+            updatedAt: new Date() // Update timestamp
+        });
+
+        // Write updated data back to the file
+        fs.writeFileSync(filePath, JSON.stringify(fileData, null, 2));
+    } catch (error) {
+        console.error('Error writing data to file:', error);
+        // Optional: Handle the error without affecting the overall process
+    }
+};
 
 
 
-
-
-flwQueue.process(10, async (job) => {
+flwQueue.process(5, async (job) => {
     const { collectedDataArray, userRole } = job.data;
     await processCollectedData(collectedDataArray, userRole);
 });
@@ -77,23 +86,19 @@ flwQueue.process(10, async (job) => {
 
 exports.syncCollectedData = async (req, res) => {
     try {
-        const collectedDataArray = req.body; // Array of collected data from the mobile app
+        const collectedDataArray = req.body; 
 
         // Check if the collected data array is empty
         if (!Array.isArray(collectedDataArray) || collectedDataArray.length === 0) {
             return res.status(400).json({ message: 'Data is empty. Please add survey data first before syncing.' });
         }
 
-        const userRole = collectedDataArray[0].userData.role; // Assuming role is in userData
+        const userRole = collectedDataArray[0].userData.role; 
 
-        // Process in smaller batches if necessary
-        const batchSize = 30; // Example batch size
-        for (let i = 0; i < collectedDataArray.length; i += batchSize) {
-            const batch = collectedDataArray.slice(i, i + batchSize);
-            await flwQueue.add({ collectedDataArray: batch, userRole }); // Add batch to the queue
-        }
+        // Add the entire collectedDataArray to the queue
+        await flwQueue.add({ collectedDataArray, userRole }); 
 
-        return res.status(202).json({ message: 'Data is being processed in batches.' });
+        return res.status(202).json({ message: 'Data is being processed.' });
 
     } catch (error) {
         console.error('Error processing request:', error);
@@ -239,8 +244,6 @@ const processSubmission = async (collectedData, data, date) => {
             collectedData.submissionIndex = {};
         }
 
-        await writeDataToFile({ collectedData: collectedData.toObject(), data, date });
-
         // Check for existing submission
         const existingSubmission = collectedData.submissions.find(submission => {
             const submissionDateStr = submission.submittedAt.toISOString().split('T')[0];
@@ -257,8 +260,8 @@ const processSubmission = async (collectedData, data, date) => {
             }
             collectedData.submissionIndex[submittedAtString].push(collectedData.submissions.length - 1);
 
-            // Write data to file
-            // await writeDataToFile({ collectedData: collectedData.toObject(), data, date });
+            // Write data to file in the required format
+            await writeDataToFile({ collectedData: collectedData.toObject(), data, date });
         }
 
         // Save the record
@@ -267,8 +270,7 @@ const processSubmission = async (collectedData, data, date) => {
     } catch (error) {
         console.error('Error processing submission:', error);
         // Optional: Handle the error without affecting the overall process
-    }
-};
+    }}
 
 
 
