@@ -2,6 +2,12 @@ const CollectedData = require('../../lib/schema/data.schema'); // Adjust the pat
 const moment = require('moment'); // To handle date formatting
 const { sendResponse, errReturned } = require('../../lib/utils/dto');
 
+
+// Models for each record type
+const House = require('../../lib/schema/house.schema');
+const School = require('../../lib/schema/school.schema');
+const StreetChildren = require('../../lib/schema/street.schema');
+
 const mongoose = require('mongoose');
 const Team = require('../../lib/schema/team.schema');
 const User = require('../../lib/schema/users.schema');
@@ -15,264 +21,267 @@ const path = require('path');
 
 
 // Create a cache instance
-const myCache = new NodeCache({ stdTTL: 900 }); // Cache for 15 minutes
-
 const Queue = require('bull');
+
+// Cache configuration
+const myCache = new NodeCache({ stdTTL: 900 }); // Cache for 15 minutes
 
 // Redis configuration
 const redisOptions = {
-    host: 'localhost', // Your Redis server host
-    port: 6379,       // Your Redis server port
+    host: 'localhost',
+    port: 6379,
     lifo: false,
     removeOnComplete: true,
     removeOnFail: true
 };
 
-const flwQueue = new Queue('flwQueue', { redis: redisOptions });
+// Bull Queue setup
+const syncDataQueue = new Queue('syncDataQueue', { redis: redisOptions });
 
-
-
+// Bull Master setup
 const bullMasterApp = bullMaster({
-    queues: [flwQueue],
-  })
-  // you can get existing queues
-  bullMasterApp.getQueues()
-  // you could also choose to change the queues to display in run time
-  bullMasterApp.setQueues([flwQueue])
-  
-
-  const MAX_FILE_SIZE = 500 * 1024 * 1024; // 5MB
-  let currentFileIndex = 1;
-  let currentFileSize = 0;
-  let currentDataBatch = [];
-  
-// Helper function to write data to a file
-const writeDataToFile = async ({ collectedData, data, date }) => {
-  
-    const filePath = path.join(__dirname, 'data.json'); // Adjust the path as needed
-
-    try {
-        // Read existing data
-        let fileData = [];
-        if (fs.existsSync(filePath)) {
-            const rawData = fs.readFileSync(filePath);
-            fileData = JSON.parse(rawData);
-        }
-
-        // Add new data entry
-        fileData.push({
-            userId: collectedData.userId,
-            submissions: collectedData.submissions,
-            campaignDetails: collectedData.campaignDetails,
-            createdAt: collectedData.createdAt,
-            updatedAt: new Date() // Update timestamp
-        });
-
-        // Write updated data back to the file
-        fs.writeFileSync(filePath, JSON.stringify(fileData, null, 2));
-    } catch (error) {
-        console.error('Error writing data to file:', error);
-        // Optional: Handle the error without affecting the overall process
-    }
-};
-
-
-
-flwQueue.process(5, async (job) => {
-    const { collectedDataArray, userRole } = job.data;
-    await processCollectedData(collectedDataArray, userRole);
+    queues: [syncDataQueue],
 });
 
+bullMasterApp.getQueues();
+bullMasterApp.setQueues([syncDataQueue]);
+
+
+
+async function insertDataToCollection(collectionName, data) {
+    try {
+        const collection = mongoose.connection.collection(collectionName);
+        for (let record of data) {
+            // Add isProcessed: false to each record
+            const recordWithProcessedFlag = { ...record, isProcessed: false };
+            await collection.insertOne(recordWithProcessedFlag);
+        }
+    } catch (error) {
+        console.error('Error inserting data into collection:', error);
+    }
+}
 
 exports.syncCollectedData = async (req, res) => {
     try {
-        const collectedDataArray = req.body; 
+        const collectedDataArray = req.body;
+        const { data } = collectedDataArray;
 
-        // Check if the collected data array is empty
-        if (!Array.isArray(collectedDataArray) || collectedDataArray.length === 0) {
-            return res.status(400).json({ message: 'Data is empty. Please add survey data first before syncing.' });
-        }
+        // Destructure the arrays from the data object
+        const { 
+            houses, 
+            schools, 
+            streetChildren, 
+            checkListForm84, 
+            checkListNA, 
+            checkListLock, 
+            checkList00 
+        } = data;
 
-        const userRole = collectedDataArray[0].userData.role; 
-
-        // Add the entire collectedDataArray to the queue
-        await flwQueue.add({ collectedDataArray, userRole }); 
-
-        return res.status(202).json({ message: 'Data is being processed.' });
-
-    } catch (error) {
-        console.error('Error processing request:', error);
-        return res.status(500).json({ message: error.message });
-    }
-};
-
-
-const processCollectedData = async (collectedDataArray, userRole) => {
-    try {
-        if (userRole === 'AIC' || userRole === 'UCMO') {
-            await Promise.all(collectedDataArray.map(entry => handleAICUCMO(entry))); // Process AIC/UCMO in parallel
-        } else if (userRole === 'FLW') {
-            await Promise.all(collectedDataArray.map(entry => handleFLW(entry))); // Process FLW entries in parallel
-        }
-         else {
-            console.error('Invalid user role:', userRole);
-        }
-    } catch (error) {
-        console.error('Error syncing data:', error);
-        // Optional: Handle error logging or notifications here
-    }
-};
-
-const handleFLW = async (entry) => {
-    try {
-        let { userData, data, campaign, date } = entry;
-
-        // Check for required fields
-        if (!userData || !data || !campaign) {
-            throw new Error('Missing required fields.');
-        }
-
-        const userId = userData.id; // Extract userId from userData
-        const { teamNumber, campaignName, day } = campaign;
-
-        // Validate the day value
-        const validDay = (day && typeof day === 'string') ? day : '4'; // Default value
-
-        // Find or create collected data
-        let collectedData = await CollectedData.findOne({
-            userId,
-            'campaignDetails.campaignName': campaignName,
-            'campaignDetails.teamNumber': teamNumber
-        }) || new CollectedData({
-            userId,
-            submissions: [],
-            submissionIndex: {}, // Initialize submissionIndex here
-            campaignDetails: {
-                teamNumber,
-                campaignName,
-                UC: campaign.UC,
-                UCMOName: campaign.UCMOName,
-                AICName: campaign.AICName,
-                day: validDay,
-                date: campaign.date,
-                areaName: campaign.areaName,
-                campaignType: campaign.campaignType,
-            }
-        });
-
-        // Process the submission
-        await processSubmission(collectedData, data, date);
-
-    } catch (error) {
-        console.error('Error handling FLW entry:', error);
-        // Optional: Handle the error without affecting the overall process
-    }
-};
-
-const handleAICUCMO = async (collectedDataArray) => {
-    try {
-        // Check if the collected data array is empty
-        if (!Array.isArray(collectedDataArray) || collectedDataArray.length === 0) {
-            throw new Error('Data is empty. Please add survey data first before syncing.');
-        }
-
-        const ucmoCampaign = collectedDataArray[0].UCMOCampaign;
-
-        if (!Array.isArray(ucmoCampaign) || ucmoCampaign.length === 0) {
-            throw new Error('UCMOCampaign is empty. Please add campaign data first.');
-        }
-
-        const campaignDetails = ucmoCampaign[0];
-        const { teamNumber, UCMOName, UCMOId, workDay } = campaignDetails;
-
-        if (!workDay || typeof workDay !== 'string') {
-            console.error('Invalid campaign day:', workDay);
-            throw new Error('Invalid campaign day value. It must be a non-empty string.');
-        }
-
-        // Collect all promises to handle multiple queries at once
-        const promises = collectedDataArray.map(async (entry) => {
-            const { userData, data, date } = entry;
-            const userId = userData.id;
-
-            // Initiate query but don't await it immediately
-            const collectedDataPromise = CollectedData.findOne({
-                userId,
-                'campaignDetails.campaignName': campaignDetails.campaignName,
-                'campaignDetails.teamNumber': teamNumber
+        // Validation checks: Ensure data is not empty for the arrays
+        if (
+            (!houses || houses.length === 0) && 
+            (!schools || schools.length === 0) && 
+            (!streetChildren || streetChildren.length === 0) &&
+            (!checkListForm84 || checkListForm84.length === 0) &&
+            (!checkListNA || checkListNA.length === 0) &&
+            (!checkListLock || checkListLock.length === 0) &&
+            (!checkList00 || checkList00.length === 0)
+        ) {
+            return res.status(400).json({ 
+                message: 'Data is empty. Please provide data to sync.' 
             });
+        }
 
-            // Process the data as soon as we have the result
-            const collectedData = await collectedDataPromise || new CollectedData({
-                userId,
-                submissions: [],
-                submissionIndex: {},
-                campaignDetails: {
-                    teamNumber,
-                    campaignName: campaignDetails.campaignName,
-                    UC: campaignDetails.UC,
-                    UCMOName,
-                    UCMOId,
-                    day: workDay,
-                    date: campaignDetails.date,
-                    areaName: campaignDetails.areaName,
-                    campaignType: campaignDetails.campaignType,
-                }
-            });
 
-            // Process the submission
-            await processSubmission(collectedData, data, date);
+        // Send immediate response
+        const response = {
+            message: 'Data received. We will process your records soon.',
+        };
+
+        res.status(202).json(response);
+
+        // Get the current date in YYYY-MM-DD format
+        const currentDate = moment().format('YYYY-MM-DD');
+
+        // Add the job to the queue for processing
+        await syncDataQueue.add({
+            houses,
+            schools,
+            streetChildren,
+            checkListForm84,
+            checkListNA,
+            checkListLock,
+            checkList00,
+            currentDate
         });
 
-        // Await all the promises to ensure all entries are processed
-        await Promise.all(promises);
+        console.log('Data successfully queued for processing');
 
     } catch (error) {
-        console.error('Error handling AIC/UCMO data:', error);
-        // Optional: Handle the error without affecting the overall process
+        console.error('Error in syncCollectedData:', error);
+        if (!res.headersSent) {
+            return res.status(500).json({ 
+                message: 'An error occurred while processing your request.' 
+            });
+        }
     }
 };
 
-
-const processSubmission = async (collectedData, data, date) => {
+syncDataQueue.process(5, async (job) => {
     try {
-        const submittedAtDate = new Date(date);
-        const submittedAtString = submittedAtDate.toISOString().split('T')[0];
+        const { houses, schools, streetChildren, checkListForm84, checkListNA, checkListLock, checkList00, currentDate } = job.data;
 
-        // Initialize submissionIndex if it doesn't exist
-        if (!collectedData.submissionIndex) {
-            collectedData.submissionIndex = {};
-        }
-
-        // Check for existing submission
-        const existingSubmission = collectedData.submissions.find(submission => {
-            const submissionDateStr = submission.submittedAt.toISOString().split('T')[0];
-            return submissionDateStr === submittedAtString && JSON.stringify(submission.data) === JSON.stringify(data);
-        });
-
-        // If it does not exist, add it
-        if (!existingSubmission) {
-            collectedData.submissions.push({ data, submittedAt: submittedAtDate });
-
-            // Use the correct initialization for the index
-            if (!collectedData.submissionIndex[submittedAtString]) {
-                collectedData.submissionIndex[submittedAtString] = [];
+        // Function to add isProcessed: false to each object if the array is not empty
+        const addIsProcessedField = (dataArray) => {
+            if (dataArray && dataArray.length > 0) {
+                return dataArray.map(item => ({
+                    ...item,
+                    isProcessed: false // Adding the field isProcessed: false to every object
+                }));
             }
-            collectedData.submissionIndex[submittedAtString].push(collectedData.submissions.length - 1);
+            return dataArray;  // Return the array as is if it's empty
+        };
 
-            // Write data to file in the required format
-            await writeDataToFile({ collectedData: collectedData.toObject(), data, date });
+        // Handle house data
+        if (houses && houses.length > 0) {
+            const houseCollectionName = `house_${currentDate}`;
+            const processedHouses = addIsProcessedField(houses);  // Add isProcessed field to each house if the array is not empty
+            for (let house of processedHouses) {
+                const houseData = {
+                    ...house,
+                    addedAt: new Date(house.addedAt),  // Ensure addedAt is in correct format
+                    updatedAt: new Date(house.updatedAt || house.addedAt), // Ensure updatedAt is also set
+                    campaignId: new mongoose.Types.ObjectId(house.campaignId), // Ensure campaignId is a valid ObjectId
+                    user: house.user ? {
+                        ...house.user,
+                        id: new mongoose.Types.ObjectId(house.user.id) // Ensure user ID is a valid ObjectId
+                    } : null
+                };
+                await insertDataToCollection(houseCollectionName, [houseData]);
+            }
         }
 
-        // Save the record
-        await collectedData.save();
+        // Handle school data
+        if (schools && schools.length > 0) {
+            const schoolCollectionName = `school_${currentDate}`;
+            const processedSchools = addIsProcessedField(schools);  // Add isProcessed field to each school if the array is not empty
+            for (let school of processedSchools) {
+                const schoolData = {
+                    ...school,
+                    addedAt: new Date(school.addedAt),
+                    updatedAt: new Date(school.updatedAt || school.addedAt),
+                    campaignId: new mongoose.Types.ObjectId(school.campaignId),
+                    user: school.user ? {
+                        ...school.user,
+                        id: new mongoose.Types.ObjectId(school.user.id)
+                    } : null
+                };
+                await insertDataToCollection(schoolCollectionName, [schoolData]);
+            }
+        }
+
+        // Handle street children data
+        if (streetChildren && streetChildren.length > 0) {
+            const streetChildrenCollectionName = `streetChildren_${currentDate}`;
+            const processedStreetChildren = addIsProcessedField(streetChildren);  // Add isProcessed field to each street child if the array is not empty
+            for (let streetChild of processedStreetChildren) {
+                const streetChildrenData = {
+                    ...streetChild,
+                    addedAt: new Date(streetChild.addedAt),
+                    updatedAt: new Date(streetChild.updatedAt || streetChild.addedAt),
+                    campaignId: new mongoose.Types.ObjectId(streetChild.campaignId),
+                    user: streetChild.user ? {
+                        ...streetChild.user,
+                        id: new mongoose.Types.ObjectId(streetChild.user.id)
+                    } : null
+                };
+                await insertDataToCollection(streetChildrenCollectionName, [streetChildrenData]);
+            }
+        }
+
+        // Handle checkListForm84 data
+        if (checkListForm84 && checkListForm84.length > 0) {
+            const checkListForm84CollectionName = `checkListForm84_${currentDate}`;
+            const processedCheckListForm84 = addIsProcessedField(checkListForm84);  // Add isProcessed field to each checklist form 84 item if the array is not empty
+            for (let entry of processedCheckListForm84) {
+                const checkListForm84Data = {
+                    ...entry,
+                    addedAt: new Date(entry.addedAt),
+                    updatedAt: new Date(entry.updatedAt || entry.addedAt),
+                    campaignId: new mongoose.Types.ObjectId(entry.campaignId),
+                    user: entry.user ? {
+                        ...entry.user,
+                        id: new mongoose.Types.ObjectId(entry.user.id)
+                    } : null
+                };
+                await insertDataToCollection(checkListForm84CollectionName, [checkListForm84Data]);
+            }
+        }
+
+        // Handle checkListNA data
+        if (checkListNA && checkListNA.length > 0) {
+            const checkListNACollectionName = `checkListNA_${currentDate}`;
+            const processedCheckListNA = addIsProcessedField(checkListNA);  // Add isProcessed field to each checklist NA item if the array is not empty
+            for (let entry of processedCheckListNA) {
+                const checkListNAData = {
+                    ...entry,
+                    addedAt: new Date(entry.addedAt),
+                    updatedAt: new Date(entry.updatedAt || entry.addedAt),
+                    campaignId: new mongoose.Types.ObjectId(entry.campaignId),
+                    user: entry.user ? {
+                        ...entry.user,
+                        id: new mongoose.Types.ObjectId(entry.user.id)
+                    } : null
+                };
+                await insertDataToCollection(checkListNACollectionName, [checkListNAData]);
+            }
+        }
+
+        // Handle checkListLock data
+        if (checkListLock && checkListLock.length > 0) {
+            const checkListLockCollectionName = `checkListLock_${currentDate}`;
+            const processedCheckListLock = addIsProcessedField(checkListLock);  // Add isProcessed field to each checklist lock item if the array is not empty
+            for (let entry of processedCheckListLock) {
+                const checkListLockData = {
+                    ...entry,
+                    addedAt: new Date(entry.addedAt),
+                    updatedAt: new Date(entry.updatedAt || entry.addedAt),
+                    campaignId: new mongoose.Types.ObjectId(entry.campaignId),
+                    user: entry.user ? {
+                        ...entry.user,
+                        id: new mongoose.Types.ObjectId(entry.user.id)
+                    } : null
+                };
+                await insertDataToCollection(checkListLockCollectionName, [checkListLockData]);
+            }
+        }
+
+        // Handle checkList00 data
+        if (checkList00 && checkList00.length > 0) {
+            const checkList00CollectionName = `checkList00_${currentDate}`;
+            const processedCheckList00 = addIsProcessedField(checkList00);  // Add isProcessed field to each checklist 00 item if the array is not empty
+            for (let entry of processedCheckList00) {
+                const checkList00Data = {
+                    ...entry,
+                    addedAt: new Date(entry.addedAt),
+                    updatedAt: new Date(entry.updatedAt || entry.addedAt),
+                    campaignId: new mongoose.Types.ObjectId(entry.campaignId),
+                    user: entry.user ? {
+                        ...entry.user,
+                        id: new mongoose.Types.ObjectId(entry.user.id)
+                    } : null
+                };
+                await insertDataToCollection(checkList00CollectionName, [checkList00Data]);
+            }
+        }
+
+        console.log('Data successfully processed and inserted.');
 
     } catch (error) {
-        console.error('Error processing submission:', error);
-        // Optional: Handle the error without affecting the overall process
-    }}
-
-
+        console.error('Error in queue processor:', error);
+        throw error;  // Re-throw error to ensure job fails if there is an issue
+    }
+});
 
 
 
