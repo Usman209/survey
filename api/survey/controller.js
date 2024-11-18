@@ -47,51 +47,31 @@ bullMasterApp.getQueues();
 bullMasterApp.setQueues([syncDataQueue]);
 
 
-// Helper function to insert data in bulk with small delay between each batch
-async function insertDataToCollection(collectionName, data, batchSize = 5, delay = 100) {
+async function insertDataToCollection(collectionName, data) {
     try {
         const collection = mongoose.connection.collection(collectionName);
 
-        // Split data into smaller chunks
-        const chunkedData = chunkArray(data, batchSize);
-
-        // Process each chunk separately
-        for (const chunk of chunkedData) {
-            // Add `isProcessed: false` to each record in the chunk
-            const processedChunk = chunk.map(record => ({
-                ...record,
-                isProcessed: false,  // Add the "isProcessed" flag
-            }));
-
+        // Loop through each record and insert individually
+        for (const record of data) {
             try {
-                // Insert the chunk of data with `ordered: false`
-                const result = await collection.insertMany(processedChunk, { ordered: false });
-                console.log(`Inserted ${result.insertedCount} records into ${collectionName}`);
-                
-                // Add a small delay before processing the next batch (this prevents overwhelming the server)
-                await sleep(delay);
+                // Add `isProcessed: false` to each record
+                const processedRecord = {
+                    ...record,
+                    isProcessed: false,  // Add the "isProcessed" flag
+                };
+
+                // Insert each record individually using insertOne
+                const result = await collection.insertOne(processedRecord);
+
             } catch (error) {
-                console.error(`Error inserting bulk data into ${collectionName}:`, error);
+                console.error(`Error inserting record into ${collectionName}:`, error);
             }
         }
 
-        console.log('All data successfully processed and inserted.');
     } catch (error) {
         console.error('Error in insertDataToCollection:', error);
     }
 }
-
-// Helper function to chunk the data array into smaller pieces
-function chunkArray(array, size) {
-    const result = [];
-    for (let i = 0; i < array.length; i += size) {
-        result.push(array.slice(i, i + size));
-    }
-    return result;
-}
-
-// Helper function to introduce delay between batches
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 
 exports.syncCollectedData = async (req, res) => {
