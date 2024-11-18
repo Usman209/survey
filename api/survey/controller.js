@@ -48,7 +48,7 @@ bullMasterApp.setQueues([syncDataQueue]);
 
 
 // Helper function to insert data in bulk with small delay between each batch
-async function insertDataToCollection(collectionName, data, batchSize = 100, delay = 100) {
+async function insertDataToCollection(collectionName, data, batchSize = 5, delay = 100) {
     try {
         const collection = mongoose.connection.collection(collectionName);
 
@@ -64,8 +64,8 @@ async function insertDataToCollection(collectionName, data, batchSize = 100, del
             }));
 
             try {
-                // Insert the chunk of data
-                const result = await collection.insertMany(processedChunk);
+                // Insert the chunk of data with `ordered: false`
+                const result = await collection.insertMany(processedChunk, { ordered: false });
                 console.log(`Inserted ${result.insertedCount} records into ${collectionName}`);
                 
                 // Add a small delay before processing the next batch (this prevents overwhelming the server)
