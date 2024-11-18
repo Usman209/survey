@@ -1052,4 +1052,110 @@ const getDistinctUserIdsForCurrentDate = async () => {
 };
 
 
+
+
+// Configuration constants
+const TIMEOUT_MS = 30000; // 30 seconds timeout
+const BATCH_SIZE = 50; // Number of collections to process in parallel
+
+exports.getCollectionCount = async (req, res) => {
+    const { userDate } = req.query;
+
+    try {
+        // If a user-provided date exists, use it; otherwise, use the current date
+        const currentDate = userDate ? moment(userDate).format('YYYY-MM-DD') : moment().format('YYYY-MM-DD');
+
+        // Get the list of all collections in the database with timeout
+        const collections = await Promise.race([
+            mongoose.connection.db.listCollections().toArray(),
+            new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Listing collections timed out')), TIMEOUT_MS)
+            )
+        ]);
+
+        // Filter collections that match the pattern
+        const relevantCollections = collections.filter(collection =>
+            (collection.name.startsWith('house_') ||
+             collection.name.startsWith('school_') ||
+             collection.name.startsWith('streetChildren_')) &&
+            collection.name.endsWith(currentDate)
+        );
+
+        if (relevantCollections.length === 0) {
+            return res.status(404).json({ 
+                message: `No collections found for the date: ${currentDate}` 
+            });
+        }
+
+        // Process collections in batches to avoid overwhelming the database
+        const results = [];
+        for (let i = 0; i < relevantCollections.length; i += BATCH_SIZE) {
+            const batch = relevantCollections.slice(i, i + BATCH_SIZE);
+            
+            const batchPromises = batch.map(async (collection) => {
+                try {
+                    const collectionName = collection.name;
+                    const col = mongoose.connection.collection(collectionName);
+
+                    // Add timeout to countDocuments operation
+                    const count = await Promise.race([
+                        col.countDocuments({ isProcessed: false }),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error(`Count operation timed out for ${collectionName}`)), TIMEOUT_MS)
+                        )
+                    ]);
+
+                    return { collectionName, count, status: 'success' };
+                } catch (error) {
+                    return {
+                        collectionName: collection.name,
+                        count: 0,
+                        status: 'error',
+                        error: error.message
+                    };
+                }
+            });
+
+            const batchResults = await Promise.all(batchPromises);
+            results.push(...batchResults);
+        }
+
+        // Separate successful and failed operations
+        const successful = results.filter(result => result.status === 'success');
+        const failed = results.filter(result => result.status === 'error');
+
+        // Create the response object
+        const response = {
+            date: currentDate,
+            counts: successful.reduce((acc, { collectionName, count }) => {
+                acc[collectionName] = count;
+                return acc;
+            }, {}),
+            totalProcessed: successful.length,
+            totalFailed: failed.length
+        };
+
+        // If there were any failures, include them in the response
+        if (failed.length > 0) {
+            response.failures = failed.map(({ collectionName, error }) => ({
+                collection: collectionName,
+                error
+            }));
+        }
+
+        // Determine appropriate status code based on results
+        const statusCode = failed.length === results.length ? 500 : 
+                          failed.length > 0 ? 207 :
+                          200;
+
+        return res.status(statusCode).json(response);
+
+    } catch (error) {
+        return res.status(500).json({
+            message: 'Error fetching collection counts',
+            error: error.message
+        });
+    }
+};
+
 exports.bullMasterApp = bullMasterApp;
