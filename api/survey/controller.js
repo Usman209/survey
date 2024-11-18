@@ -47,10 +47,10 @@ bullMasterApp.getQueues();
 bullMasterApp.setQueues([syncDataQueue]);
 
 
-async function insertDataToCollection(collectionName, data, batchSize = 1000) {
+async function insertDataToCollection(collectionName, data, batchSize = 100) {
     try {
         const collection = mongoose.connection.collection(collectionName);
-        
+
         // Split data into smaller chunks to avoid overloading the system
         const chunkedData = chunkArray(data, batchSize);
 
@@ -59,19 +59,21 @@ async function insertDataToCollection(collectionName, data, batchSize = 1000) {
             // Add `isProcessed: false` to each record in the chunk
             const processedChunk = chunk.map(record => ({
                 ...record,
-                isProcessed: false,
+                isProcessed: false,  // Add the "isProcessed" flag
             }));
 
-            // Use insertMany for bulk insert
-            try {
-                const result = await collection.insertMany(processedChunk);
-                console.log(`Inserted ${result.insertedCount} records into ${collectionName}`);
-            } catch (error) {
-                console.error('Error inserting bulk data:', error);
-                // Optionally handle failure, retry, or log errors as needed
+            // Insert each record one by one
+            for (const record of processedChunk) {
+                try {
+                    const result = await collection.insertOne(record);
+                    console.log(`Inserted 1 record into ${collectionName} with ID ${result.insertedId}`);
+                } catch (error) {
+                    console.error(`Error inserting record into ${collectionName}:`, error);
+                    // Optionally handle failure or retry logic here
+                }
             }
         }
-        
+        console.log('All data successfully processed and inserted.');
     } catch (error) {
         console.error('Error in insertDataToCollection:', error);
     }
