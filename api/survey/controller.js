@@ -47,11 +47,12 @@ bullMasterApp.getQueues();
 bullMasterApp.setQueues([syncDataQueue]);
 
 
-async function insertDataToCollection(collectionName, data, batchSize = 100) {
+// Helper function to insert data in bulk with small delay between each batch
+async function insertDataToCollection(collectionName, data, batchSize = 100, delay = 100) {
     try {
         const collection = mongoose.connection.collection(collectionName);
 
-        // Split data into smaller chunks to avoid overloading the system
+        // Split data into smaller chunks
         const chunkedData = chunkArray(data, batchSize);
 
         // Process each chunk separately
@@ -62,17 +63,18 @@ async function insertDataToCollection(collectionName, data, batchSize = 100) {
                 isProcessed: false,  // Add the "isProcessed" flag
             }));
 
-            // Insert each record one by one
-            for (const record of processedChunk) {
-                try {
-                    const result = await collection.insertOne(record);
-                    console.log(`Inserted 1 record into ${collectionName} with ID ${result.insertedId}`);
-                } catch (error) {
-                    console.error(`Error inserting record into ${collectionName}:`, error);
-                    // Optionally handle failure or retry logic here
-                }
+            try {
+                // Insert the chunk of data
+                const result = await collection.insertMany(processedChunk);
+                console.log(`Inserted ${result.insertedCount} records into ${collectionName}`);
+                
+                // Add a small delay before processing the next batch (this prevents overwhelming the server)
+                await sleep(delay);
+            } catch (error) {
+                console.error(`Error inserting bulk data into ${collectionName}:`, error);
             }
         }
+
         console.log('All data successfully processed and inserted.');
     } catch (error) {
         console.error('Error in insertDataToCollection:', error);
@@ -87,6 +89,9 @@ function chunkArray(array, size) {
     }
     return result;
 }
+
+// Helper function to introduce delay between batches
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 
 exports.syncCollectedData = async (req, res) => {
