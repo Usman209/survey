@@ -113,7 +113,7 @@ exports.syncCollectedData = async (req, res) => {
             message: 'Data received. We will process your records soon.',
         };
 
-        res.status(202).json(response);
+        res.status(200).json(response);
 
         // Get the current date in YYYY-MM-DD format
         const currentDate = moment().format('YYYY-MM-DD');
