@@ -4,10 +4,9 @@ const surveyController = require('./controller'); // Adjust the path as needed
 
 
 const { 
-    dbConnection, 
+    
     checkDBConnection, 
-    initializeDatabase,
-    getConnectionStatus 
+    
 } = require("../../lib/utils/connection");
 
 
