@@ -111,6 +111,7 @@ exports.syncCollectedData = async (req, res) => {
         // Send immediate response
         const response = {
             message: 'Data received. We will process your records soon.',
+            code:200
         };
 
         res.status(200).json(response);
