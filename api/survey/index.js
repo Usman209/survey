@@ -14,7 +14,7 @@ const {
 router.get('/', surveyController.getCollectedData); // Create a new survey
 
 
-router.post('/', checkDBConnection,  surveyController.syncCollectedData); // Create a new survey
+router.post('/',   surveyController.syncCollectedData); // Create a new survey
 
 
 router.get('/count', surveyController.getCollectionCount);
