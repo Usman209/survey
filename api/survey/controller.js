@@ -80,11 +80,6 @@ exports.syncCollectedData = async (req, res) => {
         const { data } = collectedDataArray;
 
 
-        if (mongoose.connection.readyState !== 1) {
-            return res.status(404).json({
-                message: 'MongoDB connection lost. Please try again later.',
-            });
-        }
 
         // Destructure the arrays from the data object
         const { 
