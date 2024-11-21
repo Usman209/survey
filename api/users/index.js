@@ -11,6 +11,12 @@ router
   .route("/")
   .get(controller.userList)
 
+
+
+  router
+  .route("/all")
+  .get(controller.users); 
+
   router.route("/updatepass/:id").put(controller.updatePassword)
 
   router

@@ -90,6 +90,19 @@ exports.userList = async (req, res) => {
 };
 
 
+exports.users = async (req, res) => {
+  try {
+    // Fetch alusers excluding those with the "ADMIN" role
+    const result = await USER.find({ role: { $ne: "ADMIN" } }).select("firstName email role cnic status isEmployee gender isFirstLogin phone");
+
+    return sendResponse(res, EResponseCode.SUCCESS, "User list", result);
+  } catch (err) {
+    return errReturned(res, err);
+  }
+};
+
+
+
 
 
 
