@@ -19,7 +19,7 @@ const { bullMasterApp } = require('./api/survey/controller'); // Destructure to 
 
 
 // Load configuration
-const { HOST, PORT, SESS_SECRET } = require("./config/config");
+const { HOST, SESS_SECRET } = require("./config/config");
 
 const app = express();
 
@@ -104,10 +104,10 @@ require("./routes")(app);
 // Bull Master for admin interface
 // app.use('/admin/queues', bullMasterApp);
 
-// Create server
+const PORT = process.env.PORT || 4000;  // Fallback to 4000 if PORT is not set
+
 const server = require("http").createServer(app);
 
-// Start listening
 server.listen(PORT, () => {
     console.log(`Server is listening on port ${PORT}`);
 });
