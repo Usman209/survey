@@ -10,7 +10,13 @@ exports.createCampaign = async (req, res) => {
       return errReturned(res, "Campaign name already exists. Please choose a unique name.");
     }
 
-    const existingCampaignByNumber = await Campaign.findOne({ campaignNumber });
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const durationInDays = (end - start) / (1000 * 60 * 60 * 24); // Convert milliseconds to days
+
+    if (durationInDays > 9) {
+      return errReturned(res, "The campaign duration should not exceed 9 days.");
+    }
     if (existingCampaignByNumber) {
       return errReturned(res, "Campaign number already exists. Please choose a unique number.");
     }
