@@ -3,7 +3,7 @@ const Campaign = require('../../lib/schema/campaign.schema');
 
 exports.createCampaign = async (req, res) => {
   try {
-    const { campaignName, campaignNumber, startDate, endDate } = req.body;
+    const { campaignName, startDate, endDate } = req.body;
 
     const existingCampaignByName = await Campaign.findOne({ campaignName });
     if (existingCampaignByName) {
