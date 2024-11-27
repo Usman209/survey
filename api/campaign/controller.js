@@ -61,28 +61,41 @@ exports.getAllCampaigns = async (req, res) => {
         select: 'firstName cnic role'
       });
 
-    const formattedCampaigns = campaigns.map(campaign => {
-      const campaignObj = campaign.toObject();
-      
-      // Format dates using native JavaScript
-      if (campaignObj.startDate) {
-        const startDate = new Date(campaignObj.startDate);
-        campaignObj.startDate = startDate.toISOString().split('T')[0];
-      }
-      
-      if (campaignObj.endDate) {
-        const endDate = new Date(campaignObj.endDate);
-        campaignObj.endDate = endDate.toISOString().split('T')[0];
-      }
-      
-      return campaignObj;
-    });
+    const currentDate = new Date();
+    const tomorrowDate = new Date(currentDate);
+    tomorrowDate.setDate(currentDate.getDate() + 1); // Set tomorrow's date
+
+    const formattedCampaigns = campaigns
+      .map(campaign => {
+        const campaignObj = campaign.toObject();
+        
+        // Format start and end dates using native JavaScript
+        if (campaignObj.startDate) {
+          const startDate = new Date(campaignObj.startDate);
+          
+          // Skip campaigns with start date in the future or tomorrow
+          if (startDate > currentDate || startDate.toDateString() === tomorrowDate.toDateString()) {
+            return null;
+          }
+
+          campaignObj.startDate = startDate.toISOString().split('T')[0];
+        }
+        
+        if (campaignObj.endDate) {
+          const endDate = new Date(campaignObj.endDate);
+          campaignObj.endDate = endDate.toISOString().split('T')[0];
+        }
+        
+        return campaignObj;
+      })
+      .filter(campaign => campaign !== null); // Remove null entries for campaigns to exclude
 
     return sendResponse(res, 200, "Campaigns fetched successfully.", formattedCampaigns);
   } catch (error) {
     return errReturned(res, error.message);
   }
 };
+
 
 exports.getCampaignById = async (req, res) => {
   try {
@@ -125,14 +138,36 @@ exports.deleteCampaign = async (req, res) => {
 
 exports.activateCampaign = async (req, res) => {
   try {
+    // Check if there is already an active campaign
     const activeCampaign = await Campaign.findOne({ status: 'ACTIVE' });
+
+    // If an active campaign exists
+    const currentDate = new Date();
+
     if (activeCampaign) {
-      return errReturned(res, `There is already an active campaign: ${activeCampaign.campaignName}. Please deactivate it first.`);
+      const activeCampaignStartDate = new Date(activeCampaign.startDate);
+
+      // If the active campaign's start date has passed, inform the user but do not deactivate it
+      if (activeCampaignStartDate <= currentDate) {
+        // Just inform the user about the past active campaign
+        return sendResponse(res, 200, `The active campaign "${activeCampaign.campaignName}" has passed its start date. Please deactivate it before activating a new campaign.`);
+      } else {
+        // If the active campaign is still in the future, prevent activation of a new campaign
+        return errReturned(res, `There is already an active future campaign: ${activeCampaign.campaignName}. Please deactivate it first.`);
+      }
     }
 
+    // Find the campaign to activate
     const campaign = await Campaign.findById(req.params.id);
     if (!campaign) return errReturned(res, "Campaign not found.");
 
+    // Check if the requested campaign has a future start date
+    const campaignStartDate = new Date(campaign.startDate);
+    if (campaignStartDate <= currentDate) {
+      return errReturned(res, "You can only activate future campaigns.");
+    }
+
+    // Activate the new campaign
     campaign.status = 'ACTIVE';
     await campaign.save();
 
@@ -141,6 +176,7 @@ exports.activateCampaign = async (req, res) => {
     return errReturned(res, error.message);
   }
 };
+
 
 exports.deactivateCampaign = async (req, res) => {
   try {
