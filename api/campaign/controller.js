@@ -3,13 +3,38 @@ const Campaign = require('../../lib/schema/campaign.schema');
 
 exports.createCampaign = async (req, res) => {
   try {
+    const { campaignName, campaignNumber, startDate, endDate } = req.body;
+
+    const existingCampaignByName = await Campaign.findOne({ campaignName });
+    if (existingCampaignByName) {
+      return errReturned(res, "Campaign name already exists. Please choose a unique name.");
+    }
+
+    const existingCampaignByNumber = await Campaign.findOne({ campaignNumber });
+    if (existingCampaignByNumber) {
+      return errReturned(res, "Campaign number already exists. Please choose a unique number.");
+    }
+
+    const overlappingCampaign = await Campaign.findOne({
+      $or: [
+        { startDate: { $lt: endDate }, endDate: { $gt: startDate } } 
+      ]
+    });
+
+    if (overlappingCampaign) {
+      return errReturned(res, `The dates of this campaign overlap with the campaign: ${overlappingCampaign.campaignName}`);
+    }
+
     const campaign = new Campaign(req.body);
     const savedCampaign = await campaign.save();
+
     return sendResponse(res, 201, "Campaign created successfully.", savedCampaign);
   } catch (error) {
     return errReturned(res, error.message);
   }
 };
+
+
 
 exports.getAllCampaigns = async (req, res) => {
   try {
