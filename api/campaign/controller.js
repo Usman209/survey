@@ -17,9 +17,7 @@ exports.createCampaign = async (req, res) => {
     if (durationInDays > 9) {
       return errReturned(res, "The campaign duration should not exceed 9 days.");
     }
-    if (existingCampaignByNumber) {
-      return errReturned(res, "Campaign number already exists. Please choose a unique number.");
-    }
+  
 
     const overlappingCampaign = await Campaign.findOne({
       $or: [
