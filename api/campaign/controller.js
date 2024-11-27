@@ -179,11 +179,13 @@ exports.activateCampaign = async (req, res) => {
     // Check if there is already an active campaign
     const activeCampaign = await Campaign.findOne({ status: 'ACTIVE' });
 
-    // If an active campaign exists
+    // Get the current date
     const currentDate = new Date();
 
+    // If an active campaign exists
     if (activeCampaign) {
       const activeCampaignStartDate = new Date(activeCampaign.startDate);
+      const activeCampaignEndDate = new Date(activeCampaign.endDate);
 
       // If the active campaign's start date has passed, inform the user but do not deactivate it
       if (activeCampaignStartDate <= currentDate) {
@@ -199,15 +201,17 @@ exports.activateCampaign = async (req, res) => {
     const campaign = await Campaign.findById(req.params.id);
     if (!campaign) return errReturned(res, "Campaign not found.");
 
-    // Check if the requested campaign's start date is in the past (can't activate past campaigns)
     const campaignStartDate = new Date(campaign.startDate);
-    
-    // If the campaign start date is before the current date, return an error (can't activate past campaigns)
-    if (campaignStartDate < currentDate) {
-      return errReturned(res, "You can only activate future campaigns or today's campaign.");
+    const campaignEndDate = new Date(campaign.endDate);
+
+
+
+    if (campaignEndDate <= currentDate) {
+      // If the campaign's end date is in the past, return an error (can't activate finished campaigns)
+      return errReturned(res, "You cannot activate a campaign that has already ended.");
     }
 
-    // Activate the campaign (if the start date is today or in the future)
+    // Activate the campaign (if the start date is today or in the future, and the end date is in the future)
     campaign.status = 'ACTIVE';
     await campaign.save();
 
@@ -216,6 +220,7 @@ exports.activateCampaign = async (req, res) => {
     return errReturned(res, error.message);
   }
 };
+
 
 
 
