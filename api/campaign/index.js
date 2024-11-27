@@ -16,6 +16,9 @@ router.post('/',   campaignController.createCampaign);
 // Get all campaigns
 router.get('/',  campaignController.getAllCampaigns);
 
+router.get('/current',  campaignController.getAllCampaignsIncludingCurrent);
+
+
 // Get a campaign by ID
 router.get('/:id',   campaignController.getCampaignById);
 

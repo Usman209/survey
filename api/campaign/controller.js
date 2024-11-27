@@ -55,6 +55,44 @@ exports.createCampaign = async (req, res) => {
 
 exports.getAllCampaigns = async (req, res) => {
   try {
+    // Fetch campaigns from the database and populate creator info
+    const campaigns = await Campaign.find()
+      .populate({
+        path: 'createdBy',
+        select: 'firstName cnic role'
+      });
+
+    const formattedCampaigns = campaigns
+      .map(campaign => {
+        const campaignObj = campaign.toObject();
+
+        // Format start and end dates using native JavaScript
+        if (campaignObj.startDate) {
+          const startDate = new Date(campaignObj.startDate);
+          // Format startDate to 'YYYY-MM-DD'
+          campaignObj.startDate = startDate.toISOString().split('T')[0];
+        }
+        
+        if (campaignObj.endDate) {
+          const endDate = new Date(campaignObj.endDate);
+          // Format endDate to 'YYYY-MM-DD'
+          campaignObj.endDate = endDate.toISOString().split('T')[0];
+        }
+
+        // Return the formatted campaign object
+        return campaignObj;
+      });
+
+    return sendResponse(res, 200, "All campaigns fetched successfully.", formattedCampaigns);
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+
+
+
+exports.getAllCampaignsIncludingCurrent = async (req, res) => {
+  try {
     const campaigns = await Campaign.find()
       .populate({
         path: 'createdBy',
