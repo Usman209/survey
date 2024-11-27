@@ -199,13 +199,15 @@ exports.activateCampaign = async (req, res) => {
     const campaign = await Campaign.findById(req.params.id);
     if (!campaign) return errReturned(res, "Campaign not found.");
 
-    // Check if the requested campaign has a future start date
+    // Check if the requested campaign's start date is in the past (can't activate past campaigns)
     const campaignStartDate = new Date(campaign.startDate);
-    if (campaignStartDate <= currentDate) {
-      return errReturned(res, "You can only activate future campaigns.");
+    
+    // If the campaign start date is before the current date, return an error (can't activate past campaigns)
+    if (campaignStartDate < currentDate) {
+      return errReturned(res, "You can only activate future campaigns or today's campaign.");
     }
 
-    // Activate the new campaign
+    // Activate the campaign (if the start date is today or in the future)
     campaign.status = 'ACTIVE';
     await campaign.save();
 
@@ -214,6 +216,7 @@ exports.activateCampaign = async (req, res) => {
     return errReturned(res, error.message);
   }
 };
+
 
 
 exports.deactivateCampaign = async (req, res) => {
