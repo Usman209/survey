@@ -71,7 +71,19 @@ exports.createTeam = async (req, res) => {
       return errReturned(res, "UC is required.");
     }
 
-    const teamName = await generateUniqueTeamName(uc);
+    let teamName = req.body.teamName;
+
+    // If teamName is provided in the request, check if it already exists in the database
+    if (teamName) {
+      const existingTeam = await Team.findOne({ teamName });
+
+      if (existingTeam) {
+        return errReturned(res, "The team name already exists.");
+      }
+    } else {
+      // If no teamName is provided, generate a unique team name as before
+      teamName = await generateUniqueTeamName(uc);
+    }
 
     const flwIds = req.body.flws;
     if (flwIds && flwIds.length > 0) {
@@ -82,6 +94,7 @@ exports.createTeam = async (req, res) => {
       }
     }
 
+    // Create the new team with the given or generated teamName
     const team = new Team({
       ...req.body,
       teamName,
