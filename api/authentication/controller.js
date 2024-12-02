@@ -20,7 +20,7 @@ exports.login = async (req, res) => {
       return errReturned(res, error.message);
     }
 
-    const { cnic, password } = value;
+    const { cnic, password, isMobile, versionNo } = value;
 
     // Find user by CNIC
     const user = await User.findOne({ cnic });
@@ -31,6 +31,15 @@ exports.login = async (req, res) => {
       return errReturned(res, "User is inactive and cannot log in.");
     }
 
+    // If the user is accessing from a mobile app
+    if (isMobile === "true") {
+      // Check if the version number is correct
+      if (versionNo !== "1.0.2") {
+        return errReturned(res, "Please update your mobile app.");
+      }
+    }
+
+    // Validate the password
     const validPass = await bcrypt.compare(password, user.password);
 
     // Prepare the response object
@@ -60,6 +69,7 @@ exports.login = async (req, res) => {
     return errReturned(res, error.message || "An error occurred");
   }
 };
+
 
 
 // Logout route
