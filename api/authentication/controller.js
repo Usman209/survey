@@ -24,23 +24,30 @@ exports.login = async (req, res) => {
 
     // Find user by CNIC
     const user = await User.findOne({ cnic });
-    if (!user) return errReturned(res, "User Not Found");
+    if (!user) return errReturned(res, "Invalid login attempt.");
 
     // Check if user is inactive
     if (user.status === 'INACTIVE') {
-      return errReturned(res, "User is inactive and cannot log in.");
+      return errReturned(res, "Your account is inactive and cannot log in.");
     }
 
-    // If the user is accessing from a mobile app
+    // Ensure isMobile is either "true" or "false"
+    if (isMobile !== "true" && isMobile !== "false") {
+      return errReturned(res, "Invalid login attempt.");
+    }
+
+    // If isMobile is "true", check the version number
     if (isMobile === "true") {
-      // Check if the version number is correct
       if (versionNo !== "1.0.2") {
         return errReturned(res, "Please update your mobile app.");
       }
     }
 
+
+
     // Validate the password
     const validPass = await bcrypt.compare(password, user.password);
+    if (!validPass) return errReturned(res, "Invalid login attempt.");
 
     // Prepare the response object
     let response = {
@@ -53,8 +60,6 @@ exports.login = async (req, res) => {
       needsPasswordReset: user.isFirstLogin === undefined ? 'true' : (user.isFirstLogin ? 'true' : 'false'),
     };
 
-    if (!validPass) return errReturned(res, "Invalid Password");
-
     // Generate JWT token
     const token = jwt.sign(response, process.env.TOKEN_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN,
@@ -66,9 +71,10 @@ exports.login = async (req, res) => {
     }, 1000); // Delay of 1000 ms (1 second)
 
   } catch (error) {
-    return errReturned(res, error.message || "An error occurred");
+    return errReturned(res, "Invalid login attempt.");
   }
 };
+
 
 
 

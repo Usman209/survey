@@ -142,30 +142,66 @@ exports.getTeamById = async (req, res) => {
 
 exports.updateTeam = async (req, res) => {
   try {
+ 
     const updateData = Object.fromEntries(
-      Object.entries(req.body).filter(([_, value]) => value !== null)
+      Object.entries(req.body).filter(([_, value]) => value !== null) // Ensure no null values are included
     );
 
-    // Check if 'territory.uc' is being updated
+    // Check if territory and uc are valid if being updated
     if (updateData.territory?.uc) {
-      const newTeamName = await generateUniqueTeamName(updateData.territory.uc);
-      updateData.teamName = newTeamName; // Update team name
+      if (typeof updateData.territory.uc !== 'string' || updateData.territory.uc.trim() === '') {
+        return errReturned(res, "Invalid UC value provided.");
+      }
+
+      // Handle the teamName logic when 'territory.uc' is updated
+      if (updateData.teamName) {
+        // Check if the provided teamName is a valid string
+        if (typeof updateData.teamName !== 'string' || updateData.teamName.trim() === '') {
+          return errReturned(res, "Invalid team name provided.");
+        }
+
+        // Check if teamName already exists
+        const existingTeam = await Team.findOne({ teamName: updateData.teamName });
+        if (existingTeam) {
+          return errReturned(res, "The team name already exists.");
+        }
+      } else {
+        // If no teamName is provided, generate a unique team name based on 'territory.uc'
+        const newTeamName = await generateUniqueTeamName(updateData.territory.uc);
+        updateData.teamName = newTeamName; // Update team name
+      }
+    } else if (updateData.teamName) {
+      // If only teamName is being updated (territory.uc is not updated)
+      if (typeof updateData.teamName !== 'string' || updateData.teamName.trim() === '') {
+        return errReturned(res, "Invalid team name provided.");
+      }
+
+      // Check if the provided teamName already exists
+      const existingTeam = await Team.findOne({ teamName: updateData.teamName });
+      if (existingTeam) {
+        return errReturned(res, "The team name already exists.");
+      }
     }
 
+    // Proceed to update the team
     const updatedTeam = await Team.findByIdAndUpdate(req.params.id, updateData, { new: true });
 
     if (!updatedTeam) {
       return errReturned(res, "Team not found.");
     }
 
-    await redisClient.del('all_teams'); // Invalidate cache
+    // Cache invalidation: Ensure that caches are cleared after successful update
+    await redisClient.del('all_teams');
     await redisClient.del('flw_list');
 
     return sendResponse(res, 200, "Team updated successfully.", updatedTeam);
   } catch (error) {
-    return errReturned(res, error.message);
+    // Catch unexpected errors and return a safe message
+    console.error(error); // Log the error for debugging purposes
+    return errReturned(res, "An unexpected error occurred while updating the team.");
   }
 };
+
 
 
 exports.deleteTeam = async (req, res) => {
