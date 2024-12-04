@@ -71,12 +71,27 @@ exports.getAllCampaigns = async (req, res) => {
           const startDate = new Date(campaignObj.startDate);
           // Format startDate to 'YYYY-MM-DD'
           campaignObj.startDate = startDate.toISOString().split('T')[0];
+
+          // Check if the start date is in the future, deactivate the campaign
+          if (startDate > new Date()) {
+            campaignObj.isActive = false;
+          }
         }
-        
+
         if (campaignObj.endDate) {
           const endDate = new Date(campaignObj.endDate);
           // Format endDate to 'YYYY-MM-DD'
           campaignObj.endDate = endDate.toISOString().split('T')[0];
+
+          // Check if the end date is in the past, deactivate the campaign
+          if (endDate < new Date()) {
+            campaignObj.isActive = false;
+          }
+        }
+
+        // If the campaign doesn't meet either condition (active within date range), set as active
+        if (campaignObj.isActive === undefined) {
+          campaignObj.isActive = true;
         }
 
         // Return the formatted campaign object
@@ -187,13 +202,14 @@ exports.activateCampaign = async (req, res) => {
       const activeCampaignStartDate = new Date(activeCampaign.startDate);
       const activeCampaignEndDate = new Date(activeCampaign.endDate);
 
-      // If the active campaign's start date has passed, inform the user but do not deactivate it
-      if (activeCampaignStartDate <= currentDate) {
-        // Just inform the user about the past active campaign
-        return sendResponse(res, 200, `The active campaign "${activeCampaign.campaignName}" has passed its start date. Please deactivate it before activating a new campaign.`);
-      } else {
-        // If the active campaign is still in the future, prevent activation of a new campaign
-        return errReturned(res, `There is already an active future campaign: ${activeCampaign.campaignName}. Please deactivate it first.`);
+      // If both the start date and the end date of the active campaign have passed
+      if (activeCampaignStartDate < currentDate && activeCampaignEndDate < currentDate) {
+        return sendResponse(res, 200, `The active campaign "${activeCampaign.campaignName}" has passed its start and end date. Please deactivate it before activating a new campaign.`);
+      } 
+
+      // If the active campaign's start date is today or in the past and the end date is still in the future (current campaign)
+      if (activeCampaignStartDate <= currentDate && activeCampaignEndDate >= currentDate) {
+        return errReturned(res, `There is already an active campaign: "${activeCampaign.campaignName}". Please deactivate it first.`);
       }
     }
 
@@ -204,8 +220,6 @@ exports.activateCampaign = async (req, res) => {
     const campaignStartDate = new Date(campaign.startDate);
     const campaignEndDate = new Date(campaign.endDate);
 
-
-
     if (campaignEndDate <= currentDate) {
       // If the campaign's end date is in the past, return an error (can't activate finished campaigns)
       return errReturned(res, "You cannot activate a campaign that has already ended.");
@@ -215,11 +229,18 @@ exports.activateCampaign = async (req, res) => {
     campaign.status = 'ACTIVE';
     await campaign.save();
 
-    return sendResponse(res, 200, "Campaign activated successfully.", campaign);
+    // Check if the campaign is a future campaign or a current campaign
+    if (campaignStartDate > currentDate) {
+      return sendResponse(res, 200, `Future campaign "${campaign.campaignName}" activated successfully.`, campaign);
+    } else if (campaignStartDate <= currentDate && campaignEndDate >= currentDate) {
+      return sendResponse(res, 200, `Current campaign "${campaign.campaignName}" activated successfully.`, campaign);
+    }
+
   } catch (error) {
     return errReturned(res, error.message);
   }
 };
+
 
 
 
