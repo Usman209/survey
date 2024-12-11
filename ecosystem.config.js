@@ -21,6 +21,13 @@ module.exports = {
           PORT: 4003, // Set the port for this instance
         },
       },
+      {
+        name: 'app-4004',
+        script: './server.js',
+        env: {
+          PORT: 4004, // Set the port for this instance
+        },
+      },
     ],
   };
   

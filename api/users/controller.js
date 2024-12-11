@@ -303,25 +303,37 @@ exports.userDetail = async (req, res) => {
 };
 
 
-// Get all FLWs
+// Get all FLWs with pagination
 exports.getAllFLWs = async (req, res) => {
   try {
-    const cacheKey = 'flw_list';
-    const cachedFLWs = await redisClient.get(cacheKey);
+    // const cacheKey = 'flw_list';
+    // const cachedFLWs = await redisClient.get(cacheKey);
 
-    if (cachedFLWs) {
-      return sendResponse(res, EResponseCode.SUCCESS, "FLW list", JSON.parse(cachedFLWs));
-    }
+    // // If cached data exists, return it
+    // if (cachedFLWs) {
+    //   return sendResponse(res, EResponseCode.SUCCESS, "FLW list", JSON.parse(cachedFLWs));
+    // }
 
+    // Get pagination parameters from query (defaults for page 1 and 10 items per page)
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    // Calculate the number of items to skip for pagination
+    const skip = (page - 1) * limit;
+
+    // Query FLWs from database with pagination
     const flws = await USER.find({ role: 'FLW' }, "firstName lastName email role cnic phone status createdBy updatedBy")
+      .skip(skip)
+      .limit(limit)
       .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role')
       .populate('aic', 'firstName lastName cnic'); // Populate UCMO details
 
-
+    // Fetch all teams to enrich FLWs data
     const teams = await Team.find().populate('aic', 'firstName lastName cnic')
       .populate('ucmo', 'firstName lastName cnic');
 
+    // Enrich FLWs with teams' data
     const enrichedFLWs = await Promise.all(flws.map(async (flw) => {
       const matchingTeams = teams.filter(team => team.flws.some(flwId => flwId.toString() === flw._id.toString()));
       return {
@@ -342,13 +354,24 @@ exports.getAllFLWs = async (req, res) => {
       };
     }));
 
-    await redisClient.set(cacheKey, JSON.stringify(enrichedFLWs)); // Set expiration time in seconds
-    return sendResponse(res, EResponseCode.SUCCESS, "FLW list", enrichedFLWs);
+    // Save the enriched data in cache
+    // await redisClient.set(cacheKey, JSON.stringify(enrichedFLWs)); // Set expiration time in seconds (optional)
+
+    // Return the enriched FLWs data along with pagination info
+    return sendResponse(res, EResponseCode.SUCCESS, "FLW list", {
+      currentPage: page,
+      totalItems: await USER.countDocuments({ role: 'FLW' }),
+      totalPages: Math.ceil(await USER.countDocuments({ role: 'FLW' }) / limit),
+      itemsPerPage: limit,
+      data: enrichedFLWs
+    });
+
   } catch (err) {
     console.error("Error fetching FLWs:", err);
     return errReturned(res, err);
   }
 };
+
 
 // Get all UCMOs
 exports.getAllUCMOs = async (req, res) => {
@@ -554,7 +577,7 @@ exports.getUCMOWithAICsAndFLWs = async (req, res) => {
 
 exports.searchUsers = async (req, res) => {
   try {
-    const { role, firstName, email, status } = req.query;
+    const { role, firstName, lastName, cnic, email, phone, status } = req.query;
 
     // Build the query object
     const query = {};
@@ -566,15 +589,24 @@ exports.searchUsers = async (req, res) => {
     if (firstName) {
       query.firstName = { $regex: firstName, $options: 'i' }; // Case-insensitive search
     }
+    if (lastName) {
+      query.lastName = { $regex: lastName, $options: 'i' }; // Case-insensitive search
+    }
+    if (cnic) {
+      query.cnic = { $regex: cnic, $options: 'i' }; // Case-insensitive search for CNIC
+    }
     if (email) {
-      query.email = { $regex: email, $options: 'i' };
+      query.email = { $regex: email, $options: 'i' }; // Case-insensitive search
+    }
+    if (phone) {
+      query.phone = { $regex: phone, $options: 'i' }; // Case-insensitive search for phone
     }
     if (status) {
       query.status = status;
     }
 
     // Fetch users matching the query
-    const users = await USER.find(query).select("firstName email cnic role phone status");
+    const users = await USER.find(query).select("firstName lastName email cnic role phone status");
 
     // Return the results
     return sendResponse(res, EResponseCode.SUCCESS, "User search results", users);
