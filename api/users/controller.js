@@ -417,18 +417,20 @@ exports.getAllAdmins = async (req, res) => {
 
 exports.getAllAICs = async (req, res) => {
   try {
-    const cacheKey = 'aic_list';
-    const cachedAICs = await redisClient.get(cacheKey);
+    // Get pagination parameters from query (defaults for page 1 and 10 items per page)
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
 
-    if (cachedAICs) {
-      return sendResponse(res, EResponseCode.SUCCESS, "AIC list", JSON.parse(cachedAICs));
-    }
+    // Calculate the number of items to skip for pagination
+    const skip = (page - 1) * limit;
 
-    // Fetch AICs from the database and populate relevant fields
+    // Fetch AICs from the database with pagination and populate relevant fields
     const aics = await USER.find(
       { role: 'AIC' },
       "firstName lastName email role cnic phone status createdBy updatedBy ucmo"
     )
+      .skip(skip)
+      .limit(limit)
       .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role')
       .populate('ucmo', 'firstName lastName cnic'); // Populate UCMO details
@@ -445,9 +447,17 @@ exports.getAllAICs = async (req, res) => {
       };
     });
 
-    // Cache the enriched AICs
-    await redisClient.set(cacheKey, JSON.stringify(enrichedAICs));
-    return sendResponse(res, EResponseCode.SUCCESS, "AIC list", enrichedAICs);
+    // Get the total number of AICs for pagination info
+    const totalAICs = await USER.countDocuments({ role: 'AIC' });
+
+    // Return the enriched AICs data along with pagination info
+    return sendResponse(res, EResponseCode.SUCCESS, "AIC list", {
+      currentPage: page,
+      totalItems: totalAICs,
+      totalPages: Math.ceil(totalAICs / limit),
+      itemsPerPage: limit,
+      data: enrichedAICs
+    });
   } catch (err) {
     console.error("Error fetching AICs:", err);
     return errReturned(res, err);
@@ -605,15 +615,88 @@ exports.searchUsers = async (req, res) => {
       query.status = status;
     }
 
-    // Fetch users matching the query
-    const users = await USER.find(query).select("firstName lastName email cnic role phone status");
+    // Fetch users matching the query without pagination
+    const users = await USER.find(query, "firstName lastName email role cnic phone status createdBy updatedBy aic ucmo")
+      .populate('createdBy', 'firstName lastName cnic role')
+      .populate('updatedBy', 'firstName lastName cnic role')
+      .populate('aic', 'firstName lastName cnic') // Populate AIC details (only if relevant)
+      .populate('ucmo', 'firstName lastName cnic'); // Populate UCMO details (only if relevant)
 
-    // Return the results
-    return sendResponse(res, EResponseCode.SUCCESS, "User search results", users);
+    // Enrich users with teams' data and additional role-specific information
+    const enrichedUsers = await Promise.all(users.map(async (user) => {
+      let userDetails = user.toObject();
+
+      // Handle users with 'AIC' role
+      if (userDetails.role === 'AIC') {
+        userDetails = {
+          ...userDetails,
+          ucmoDetails: userDetails.ucmo ? {
+            firstName: userDetails.ucmo.firstName,
+            lastName: userDetails.ucmo.lastName,
+            cnic: userDetails.ucmo.cnic
+          } : null,
+        };
+
+        // Enrich with team details (if user is AIC)
+        const matchingTeams = await Team.find({ 'flws': user._id }).populate('aic', 'firstName lastName cnic').populate('ucmo', 'firstName lastName cnic');
+        const teams = matchingTeams.map(team => ({
+          teamName: team.teamName,
+          ucmoDetails: team.ucmo ? {
+            firstName: team.ucmo.firstName,
+            lastName: team.ucmo.lastName,
+            cnic: team.ucmo.cnic
+          } : null,
+          aicDetails: team.aic ? {
+            firstName: team.aic.firstName,
+            lastName: team.aic.lastName,
+            cnic: team.aic.cnic
+          } : null,
+        }));
+
+        userDetails = { ...userDetails, teams };
+      }
+
+      // Handle users with 'FLW' role
+      if (userDetails.role === 'FLW') {
+        const matchingTeams = await Team.find({ 'flws': user._id }).populate('aic', 'firstName lastName cnic').populate('ucmo', 'firstName lastName cnic');
+        const teams = matchingTeams.map(team => ({
+          teamName: team.teamName,
+          ucmoDetails: team.ucmo ? {
+            firstName: team.ucmo.firstName,
+            lastName: team.ucmo.lastName,
+            cnic: team.ucmo.cnic
+          } : null,
+          aicDetails: team.aic ? {
+            firstName: team.aic.firstName,
+            lastName: team.aic.lastName,
+            cnic: team.aic.cnic
+          } : null,
+        }));
+
+        userDetails = { ...userDetails, teams };
+      }
+
+      // If the user role is 'ADMIN' or 'UCMO', just return the user details without teams or additional role-based information
+      if (userDetails.role === 'ADMIN' || userDetails.role === 'UCMO') {
+        userDetails = {
+          ...userDetails,
+          teams: [],  // No teams data for 'ADMIN' or 'UCMO'
+          ucmoDetails: null,  // No UCMO details for 'ADMIN' or 'UCMO'
+        };
+      }
+
+      return userDetails;
+    }));
+
+    // Return the enriched user data without pagination info
+    return sendResponse(res, EResponseCode.SUCCESS, "User search results", enrichedUsers);
   } catch (err) {
-    errReturned(res, err);
+    console.error("Error fetching users:", err);
+    return errReturned(res, err);
   }
 };
+
+
 
 
 
