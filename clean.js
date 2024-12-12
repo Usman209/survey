@@ -1,58 +1,59 @@
-const { MongoClient } = require('mongodb');
+// cleanup.js
 
-// Replace with your MongoDB connection URI
+const { MongoClient } = require('mongodb');
+const cron = require('node-cron');
+
+// MongoDB URI
 const uri = 'mongodb://110.38.226.9:28018';
 const client = new MongoClient(uri);
 
-
-
+// Cleanup function
 async function cleanUpCollections() {
     try {
-      await client.connect();
-      const db = client.db('polio'); // Replace 'yourDatabase' with your actual database name
-  
-      // Fetch all collections from the database
-      const collections = await db.listCollections().toArray();
-  
-   
-  
-      // Get collections that match the pattern (adjusted for flexibility)
-      const matchingCollections = collections.filter(col => {
-        const matchesLock00 = /^checkList(Lock|00)_/.test(col.name);
-        const matchesOther = /^(checkListForm84|checkListNA|house|school|streetChildren)/.test(col.name);
-        return matchesLock00 || matchesOther;
-      });
-  
-      // Log the collections that match
-      console.log('Matching collections:', matchingCollections.map(col => col.name).join(', '));
-  
-      // Process each matching collection
-      for (const collectionInfo of matchingCollections) {
-        const collectionName = collectionInfo.name;
-        console.log(`Processing collection: ${collectionName}`);  // Debug: Log which collection is being processed
-  
-        const collection = db.collection(collectionName);
-  
-        // Remove documents with isProcessed: true
-        const deleteResult = await collection.deleteMany({ isProcessed: true });
-        console.log(`Deleted ${deleteResult.deletedCount} records from ${collectionName}`);
-  
-        // Check if collection is empty
-        const count = await collection.countDocuments();
-        console.log(`Collection ${collectionName} now has ${count} documents`);  // Debug: Log the count of documents after deletion
-        if (count === 0) {
-          // If the collection is empty, drop it
-          await db.dropCollection(collectionName);
-          console.log(`Dropped empty collection: ${collectionName}`);
+        await client.connect();
+        const db = client.db('polio'); // Replace with your database name
+
+        // Fetch all collections from the database
+        const collections = await db.listCollections().toArray();
+
+        // Get collections that match the pattern
+        const matchingCollections = collections.filter(col => {
+            const matchesLock00 = /^checkList(Lock|00)_/.test(col.name);
+            const matchesOther = /^(checkListForm84|checkListNA|house|school|streetChildren)/.test(col.name);
+            return matchesLock00 || matchesOther;
+        });
+
+        // Log matching collections
+
+        // Process each matching collection
+        for (const collectionInfo of matchingCollections) {
+            const collectionName = collectionInfo.name;
+
+            const collection = db.collection(collectionName);
+
+            // Remove documents with isProcessed: true
+            const deleteResult = await collection.deleteMany({ isProcessed: true });
+
+            // Check if collection is empty
+            const count = await collection.countDocuments();
+            if (count === 0) {
+                // Drop the empty collection
+                await db.dropCollection(collectionName);
+              
+            }
         }
-      }
-  
+
     } catch (error) {
-      console.error('Error during cleanup:', error);
+        console.error('Error during cleanup:', error);
     } finally {
-      await client.close();
+        await client.close();
     }
-  }
-  
-  // Run the cleanup function
-  cleanUpCollections();
+}
+
+// Schedule the cleanup function to run daily at 8 PM
+cron.schedule('0 20 * * *', () => {
+    console.log('Running cleanup task daily at 8 PM...');
+    cleanUpCollections();
+});
+
+console.log('Cron job for cleanup is scheduled to run daily at 8 PM');

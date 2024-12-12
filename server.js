@@ -11,6 +11,8 @@ const Queue = require('bull');
 const redisClient = require('./config/redis.js'); // Adjust the path based on your file structure
 require("dotenv").config();
 
+require('./clean.js');
+
 const logger = require('./lib/utils/logger.js');
 
 const { bullMasterApp } = require('./api/survey/controller'); // Destructure to get bullMasterApp
