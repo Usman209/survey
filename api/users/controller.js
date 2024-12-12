@@ -304,7 +304,7 @@ exports.userDetail = async (req, res) => {
 
 
 // Get all FLWs with pagination
-exports.getAllFLWs = async (req, res) => {
+exports.getAllFLWs1 = async (req, res) => {
   try {
     // const cacheKey = 'flw_list';
     // const cachedFLWs = await redisClient.get(cacheKey);
@@ -373,6 +373,55 @@ exports.getAllFLWs = async (req, res) => {
 };
 
 
+
+
+exports.getAllFLWs = async (req, res) => {
+  try {
+    const cacheKey = 'flw_list';
+    const cachedFLWs = await redisClient.get(cacheKey);
+
+    if (cachedFLWs) {
+      return sendResponse(res, EResponseCode.SUCCESS, "FLW list", JSON.parse(cachedFLWs));
+    }
+
+    const flws = await USER.find({ role: 'FLW' }, "firstName lastName email role cnic phone status createdBy updatedBy")
+      .populate('createdBy', 'firstName lastName cnic role')
+      .populate('updatedBy', 'firstName lastName cnic role')
+      .populate('aic', 'firstName lastName cnic'); // Populate UCMO details
+
+
+    const teams = await Team.find().populate('aic', 'firstName lastName cnic')
+      .populate('ucmo', 'firstName lastName cnic');
+
+    const enrichedFLWs = await Promise.all(flws.map(async (flw) => {
+      const matchingTeams = teams.filter(team => team.flws.some(flwId => flwId.toString() === flw._id.toString()));
+      return {
+        ...flw.toObject(),
+        teams: matchingTeams.map(team => ({
+          teamName: team.teamName,
+          ucmoDetails: team.ucmo ? {
+            firstName: team.ucmo.firstName,
+            lastName: team.ucmo.lastName,
+            cnic: team.ucmo.cnic
+          } : null,
+          aicDetails: team.aic ? {
+            firstName: team.aic.firstName,
+            lastName: team.aic.lastName,
+            cnic: team.aic.cnic
+          } : null,
+        })) || [],
+      };
+    }));
+
+    await redisClient.set(cacheKey, JSON.stringify(enrichedFLWs)); // Set expiration time in seconds
+    return sendResponse(res, EResponseCode.SUCCESS, "FLW list", enrichedFLWs);
+  } catch (err) {
+    console.error("Error fetching FLWs:", err);
+    return errReturned(res, err);
+  }
+};
+
+
 // Get all UCMOs
 exports.getAllUCMOs = async (req, res) => {
   try {
@@ -415,7 +464,7 @@ exports.getAllAdmins = async (req, res) => {
   }
 };
 
-exports.getAllAICs = async (req, res) => {
+exports.getAllAICs1 = async (req, res) => {
   try {
     // Get pagination parameters from query (defaults for page 1 and 10 items per page)
     const page = parseInt(req.query.page) || 1;
@@ -463,6 +512,47 @@ exports.getAllAICs = async (req, res) => {
     return errReturned(res, err);
   }
 };
+
+exports.getAllAICs = async (req, res) => {
+  try {
+    const cacheKey = 'aic_list';
+    const cachedAICs = await redisClient.get(cacheKey);
+
+    if (cachedAICs) {
+      return sendResponse(res, EResponseCode.SUCCESS, "AIC list", JSON.parse(cachedAICs));
+    }
+
+    // Fetch AICs from the database and populate relevant fields
+    const aics = await USER.find(
+      { role: 'AIC' },
+      "firstName lastName email role cnic phone status createdBy updatedBy ucmo"
+    )
+      .populate('createdBy', 'firstName lastName cnic role')
+      .populate('updatedBy', 'firstName lastName cnic role')
+      .populate('ucmo', 'firstName lastName cnic'); // Populate UCMO details
+
+    // Enrich AICs with UCMO details
+    const enrichedAICs = aics.map((aic) => {
+      return {
+        ...aic.toObject(),
+        ucmoDetails: aic.ucmo ? {
+          firstName: aic.ucmo.firstName,
+          lastName: aic.ucmo.lastName,
+          cnic: aic.ucmo.cnic
+        } : null,
+      };
+    });
+
+    // Cache the enriched AICs
+    await redisClient.set(cacheKey, JSON.stringify(enrichedAICs));
+    return sendResponse(res, EResponseCode.SUCCESS, "AIC list", enrichedAICs);
+  } catch (err) {
+    console.error("Error fetching AICs:", err);
+    return errReturned(res, err);
+  }
+};
+
+
 
 
 

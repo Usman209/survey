@@ -68,6 +68,9 @@ router.get('/all-admin', controller.getAllAdmins);
 router.get('/all-aic', controller.getAllAICs);
 router.get('/all-flw', controller.getAllFLWs);
 
+router.get('/all-aic1', controller.getAllAICs1);
+router.get('/all-flw1', controller.getAllFLWs1);
+
 
 
 

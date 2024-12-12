@@ -11,6 +11,8 @@ const { EUserRole } = require('../../lib/utils/enum');
 
 router.post('/', teamController.createTeam);
 router.get('/',teamController.getAllTeams);
+router.get('/all',teamController.getAllTeams1);
+
 router.get('/:id', teamController.getTeamById);
 router.put('/:id', teamController.updateTeam);
 router.delete('/:id', teamController.deleteTeam);

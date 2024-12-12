@@ -1,6 +1,8 @@
 const Team = require('../../lib/schema/team.schema');
 const USER = require('../../lib/schema/users.schema');
 const redisClient = require("../../config/redis");
+const mongoose = require('mongoose');
+
 
 const { errReturned, sendResponse } = require('../../lib/utils/dto');
 
@@ -109,6 +111,39 @@ exports.createTeam = async (req, res) => {
     return errReturned(res, error.message);
   }
 };
+
+exports.getAllTeams1 = async (req, res) => {
+  try {
+    // Get pagination parameters from query (defaults for page 1 and 10 items per page)
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    // Calculate the number of items to skip for pagination
+    const skip = (page - 1) * limit;
+
+    // Fetch teams from the database with pagination and populate relevant fields
+    const teams = await Team.find()
+      .skip(skip)
+      .limit(limit)
+      .populate('flws createdBy');
+
+    // Get the total number of teams for pagination info
+    const totalTeams = await Team.countDocuments();
+
+    // Return the paginated teams data along with pagination info
+    return sendResponse(res, 200, "Teams fetched successfully.", {
+      currentPage: page,
+      totalItems: totalTeams,
+      totalPages: Math.ceil(totalTeams / limit),
+      itemsPerPage: limit,
+      data: teams
+    });
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+
+
 
 exports.getAllTeams = async (req, res) => {
   try {
@@ -249,12 +284,15 @@ exports.getTeamsByUcmo = async (req, res) => {
   }
 };
 
+
 exports.searchTeams = async (req, res) => {
   try {
-    const { teamNumber, teamName, district, division, uc, tehsilOrTown, aic, ucmo } = req.query;
+    const { teamNumber, teamName, district, division, uc, tehsilOrTown, aic, ucmo, cnic } = req.query;
+
 
     const filter = {};
-    
+
+    // Add team filters
     if (teamNumber) filter.teamNumber = teamNumber;
     if (teamName) filter.teamName = new RegExp(teamName, 'i');
     if (district) filter.territory = { ...filter.territory, district: new RegExp(district, 'i') };
@@ -264,12 +302,45 @@ exports.searchTeams = async (req, res) => {
     if (aic) filter.aic = aic;
     if (ucmo) filter.ucmo = ucmo;
 
-    const teams = await Team.find(filter);
+    if (cnic) {
+      const user = await USER.findOne({ cnic }).select('_id role');
+
+      if (!user) {
+        return sendResponse(res, 404, "No user found with the provided CNIC.");
+      }
+
+      // Based on the user's role, we modify the filter object
+      if (user.role === 'FLW') {
+        // Use new to create an ObjectId instance
+        filter.flws = { $in: [new mongoose.Types.ObjectId(user._id)] };
+      } else if (user.role === 'AIC') {
+        filter.aic = new mongoose.Types.ObjectId(user._id);
+      } else if (user.role === 'UCMO') {
+        filter.ucmo = new mongoose.Types.ObjectId(user._id);
+      } else {
+        return sendResponse(res, 400, "The CNIC belongs to a user with an invalid role for team search.");
+      }
+    }
+
+
+    // Fetch teams matching the filter from the database
+    const teams = await Team.find(filter).populate('flws createdBy aic ucmo');
+
+
+    if (teams.length === 0) {
+      return sendResponse(res, 404, "No teams found matching the provided criteria.");
+    }
+
     return sendResponse(res, 200, "Teams retrieved successfully.", teams);
   } catch (error) {
+    console.error("Error in searchTeams:", error);
     return errReturned(res, error.message);
   }
 };
+
+
+
+
 
 const generateUniqueTeamName = async (uc) => {
   let baseName = `${uc}`;
