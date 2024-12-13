@@ -15,15 +15,17 @@ exports.createCampaign = async (req, res) => {
       return errReturned(res, "Campaign name already exists. Please choose a unique name.");
     }
 
-    // Convert the start and end dates to Date objects
+    // Convert the start and end dates to Date objects and normalize to midnight
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    // Calculate the campaign duration in days
-    const durationInDays = (end - start) / (1000 * 60 * 60 * 24); // Convert milliseconds to days
+    start.setHours(0, 0, 0, 0); // Set to midnight for start date
+    end.setHours(23, 59, 59, 999); // Set to the last moment of the end date
+
+    // Calculate the campaign duration in days (including both start and end days)
+    const durationInDays = Math.ceil((end - start + 1) / (1000 * 60 * 60 * 24)); // Add 1 to include the start day
 
     // Check if the duration is less than 7 days
-
     if (durationInDays < 7) {
       return errReturned(res, "The campaign duration should be at least 7 days.");
     }
@@ -57,17 +59,9 @@ exports.createCampaign = async (req, res) => {
 
 
 
+
 exports.getAllCampaigns = async (req, res) => {
   try {
-    const cacheKey = 'all_campaigns';  // A simple cache key for all campaigns
-
-    // Check if the data is already in cache
-    const cachedCampaigns = await redisClient.get(cacheKey);
-
-    if (cachedCampaigns) {
-      // If data is in cache, return the cached data
-      return sendResponse(res, 200, "All campaigns fetched from cache.", JSON.parse(cachedCampaigns));
-    }
 
     // Fetch campaigns from the database and populate creator info
     const campaigns = await Campaign.find().populate({
@@ -101,8 +95,6 @@ exports.getAllCampaigns = async (req, res) => {
       return campaignObj;
     });
 
-    // Cache the result without expiration time (persistent cache)
-    await redisClient.set(cacheKey, JSON.stringify(formattedCampaigns));
 
     return sendResponse(res, 200, "All campaigns fetched successfully.", formattedCampaigns);
   } catch (error) {
