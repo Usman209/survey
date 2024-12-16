@@ -446,18 +446,11 @@ exports.getAllUCMOs = async (req, res) => {
 // Get all Admins
 exports.getAllAdmins = async (req, res) => {
   try {
-    const cacheKey = 'admin_list';
-    const cachedAdmins = await redisClient.get(cacheKey);
-
-    if (cachedAdmins) {
-      return sendResponse(res, EResponseCode.SUCCESS, "Admin list", JSON.parse(cachedAdmins));
-    }
 
     const admins = await USER.find({ role: 'ADMIN' }, "firstName lastName email role cnic phone status")
       .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role');
 
-    await redisClient.set(cacheKey, JSON.stringify(admins));
     return sendResponse(res, EResponseCode.SUCCESS, "Admin list", admins);
   } catch (err) {
     return errReturned(res, err);
@@ -794,7 +787,6 @@ exports.addAdmin = async (req, res) => {
   try {
     const result = await addUserWithRole(req, res, "ADMIN");
     if (result) {
-      await redisClient.del('admin_list');
     }
     return result; // Return the result or a relevant response
   } catch (error) {

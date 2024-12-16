@@ -50,10 +50,10 @@ async function cleanUpCollections() {
     }
 }
 
-// Schedule the cleanup function to run daily at 8 PM
-cron.schedule('0 20 * * *', () => {
-    console.log('Running cleanup task daily at 8 PM...');
-    cleanUpCollections();
-});
+// // Schedule the cleanup function to run daily at 8 PM
+// cron.schedule('0 20 * * *', () => {
+//     console.log('Running cleanup task daily at 8 PM...');
+//     cleanUpCollections();
+// });
 
-console.log('Cron job for cleanup is scheduled to run daily at 8 PM');
+// console.log('Cron job for cleanup is scheduled to run daily at 8 PM');

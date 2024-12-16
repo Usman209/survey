@@ -64,7 +64,7 @@ app.use('/admin/queues', bullMasterApp)
 
 // Initialize Apitally
 useApitally(app, {
-    clientId: "579ffc9c-b5f6-4464-b0d9-e896ab97a4d0",
+    clientId: "d898a789-d561-491c-8a66-e960fdb1200d",
     env: "dev",
 });
 
