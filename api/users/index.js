@@ -62,6 +62,13 @@ router.post('/add-flw', controller.addFlw);
 router.get('/flw-search', controller.searchFlw);
 
 
+router.get('/noteam', controller.getFLWsNotInAnyTeam);
+
+router.get('/team', controller.getActiveFLWsAssignedToTeams );
+
+
+
+
 router.get('/all-ucmo', controller.getAllUCMOs);
 router.get('/all-admin', controller.getAllAdmins);
 

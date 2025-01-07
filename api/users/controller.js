@@ -373,6 +373,64 @@ exports.getAllFLWs1 = async (req, res) => {
 };
 
 
+exports.getFLWsNotInAnyTeam = async (req, res) => {
+  try {
+    // Get all teams and their associated FLWs
+    const teams = await Team.find().populate('flws');
+    
+    // Flatten the list of all FLWs in the teams
+    const flwsInTeams = teams.reduce((acc, team) => {
+      team.flws.forEach(flw => acc.push(flw._id.toString()));
+      return acc;
+    }, []);
+    
+    // Query the FLWs that are not part of any team
+    const flwsNotInTeams = await USER.find({
+      role: 'FLW',
+      _id: { $nin: flwsInTeams }
+    });
+
+    // Count of FLWs not in any team
+    const count = flwsNotInTeams.length;
+
+    // Return the response with the FLWs and the count
+    return sendResponse(res, 200, `FLWs not added to any team. Total: ${count}`, { flws: flwsNotInTeams, count: count });
+  } catch (error) {
+    console.error("Error fetching FLWs not in any team:", error);
+    return errReturned(res, error.message);
+  }
+};
+
+
+exports.getActiveFLWsAssignedToTeams = async (req, res) => {
+  try {
+    // Get all teams and their associated FLWs
+    const teams = await Team.find().populate('flws');
+    
+    // Flatten the list of all FLWs in the teams and filter those with ACTIVE status
+    const activeFLWs = teams.reduce((acc, team) => {
+      team.flws.forEach(flw => {
+        // Check if FLW has ACTIVE status and not already in the array
+        if (flw.status === 'ACTIVE' && !acc.some(existingFlw => existingFlw._id.toString() === flw._id.toString())) {
+          acc.push(flw);
+        }
+      });
+      return acc;
+    }, []);
+
+    // Count of FLWs who are assigned to teams and have ACTIVE status
+    const count = activeFLWs.length;
+
+    // Return the response with the FLWs and the count
+    return sendResponse(res, 200, `Active FLWs assigned to teams. Total: ${count}`, { flws: activeFLWs, count: count });
+  } catch (error) {
+    console.error("Error fetching active FLWs assigned to teams:", error);
+    return errReturned(res, error.message);
+  }
+};
+
+
+
 
 
 exports.getAllFLWs = async (req, res) => {

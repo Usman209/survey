@@ -59,6 +59,32 @@ exports.createCampaign = async (req, res) => {
 
 
 
+exports.searchCampaign = async (req, res) => {
+  try {
+    const { campaignName } = req.query;
+
+    // If no campaign name is provided, return an error
+    if (!campaignName) {
+      return errReturned(res, "Campaign name is required for the search.");
+    }
+
+    // Search campaigns by name (case-insensitive)
+    const campaigns = await Campaign.find({
+      campaignName: { $regex: campaignName, $options: 'i' }, // Case-insensitive search
+    });
+
+    if (campaigns.length === 0) {
+      return sendResponse(res, 404, "No campaigns found with that name.");
+    }
+
+    return sendResponse(res, 200, "Campaigns fetched successfully.", campaigns);
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+
+
+
 
 exports.getAllCampaigns = async (req, res) => {
   try {
