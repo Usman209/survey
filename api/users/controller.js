@@ -322,7 +322,7 @@ exports.getAllFLWs1 = async (req, res) => {
     const skip = (page - 1) * limit;
 
     // Query FLWs from database with pagination
-    const flws = await USER.find({ role: 'FLW' }, "firstName lastName email role cnic phone status createdBy updatedBy")
+    const flws = await USER.find({ role: 'FLW' }, "firstName lastName email role cnic phone status createdBy updatedBy territory")
       .skip(skip)
       .limit(limit)
       .populate('createdBy', 'firstName lastName cnic role')
@@ -435,14 +435,8 @@ exports.getActiveFLWsAssignedToTeams = async (req, res) => {
 
 exports.getAllFLWs = async (req, res) => {
   try {
-    const cacheKey = 'flw_list';
-    const cachedFLWs = await redisClient.get(cacheKey);
-
-    if (cachedFLWs) {
-      return sendResponse(res, EResponseCode.SUCCESS, "FLW list", JSON.parse(cachedFLWs));
-    }
-
-    const flws = await USER.find({ role: 'FLW' }, "firstName lastName email role cnic phone status createdBy updatedBy")
+   
+    const flws = await USER.find({ role: 'FLW' }, "firstName lastName email role cnic phone status createdBy updatedBy territory")
       .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role')
       .populate('aic', 'firstName lastName cnic'); // Populate UCMO details
@@ -471,7 +465,6 @@ exports.getAllFLWs = async (req, res) => {
       };
     }));
 
-    await redisClient.set(cacheKey, JSON.stringify(enrichedFLWs)); // Set expiration time in seconds
     return sendResponse(res, EResponseCode.SUCCESS, "FLW list", enrichedFLWs);
   } catch (err) {
     console.error("Error fetching FLWs:", err);
@@ -483,18 +476,11 @@ exports.getAllFLWs = async (req, res) => {
 // Get all UCMOs
 exports.getAllUCMOs = async (req, res) => {
   try {
-    const cacheKey = 'ucmo_list';
-    const cachedUCMOs = await redisClient.get(cacheKey);
-
-    if (cachedUCMOs) {
-      return sendResponse(res, EResponseCode.SUCCESS, "UCMO list", JSON.parse(cachedUCMOs));
-    }
-
-    const ucmos = await USER.find({ role: 'UCMO' }, "firstName lastName email role cnic phone status")
+    // Fetch users with role 'UCMO', including necessary fields
+    const ucmos = await USER.find({ role: 'UCMO' }, "firstName lastName role cnic phone status territory")
       .populate('createdBy', 'firstName lastName cnic role')
-      .populate('updatedBy', 'firstName lastName cnic role');
+      .populate('updatedBy', 'firstName lastName cnic role')
 
-    await redisClient.set(cacheKey, JSON.stringify(ucmos));
     return sendResponse(res, EResponseCode.SUCCESS, "UCMO list", ucmos);
   } catch (err) {
     return errReturned(res, err);
@@ -505,7 +491,7 @@ exports.getAllUCMOs = async (req, res) => {
 exports.getAllAdmins = async (req, res) => {
   try {
 
-    const admins = await USER.find({ role: 'ADMIN' }, "firstName lastName email role cnic phone status")
+    const admins = await USER.find({ role: 'ADMIN' }, "firstName lastName email role cnic phone status territory")
       .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role');
 
@@ -527,7 +513,7 @@ exports.getAllAICs1 = async (req, res) => {
     // Fetch AICs from the database with pagination and populate relevant fields
     const aics = await USER.find(
       { role: 'AIC' },
-      "firstName lastName email role cnic phone status createdBy updatedBy ucmo"
+      "firstName lastName email role cnic phone status createdBy updatedBy ucmo territory"
     )
       .skip(skip)
       .limit(limit)
@@ -566,17 +552,12 @@ exports.getAllAICs1 = async (req, res) => {
 
 exports.getAllAICs = async (req, res) => {
   try {
-    const cacheKey = 'aic_list';
-    const cachedAICs = await redisClient.get(cacheKey);
 
-    if (cachedAICs) {
-      return sendResponse(res, EResponseCode.SUCCESS, "AIC list", JSON.parse(cachedAICs));
-    }
 
     // Fetch AICs from the database and populate relevant fields
     const aics = await USER.find(
       { role: 'AIC' },
-      "firstName lastName email role cnic phone status createdBy updatedBy ucmo"
+      "firstName lastName email role cnic phone status createdBy updatedBy ucmo territory"
     )
       .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role')
@@ -595,7 +576,6 @@ exports.getAllAICs = async (req, res) => {
     });
 
     // Cache the enriched AICs
-    await redisClient.set(cacheKey, JSON.stringify(enrichedAICs));
     return sendResponse(res, EResponseCode.SUCCESS, "AIC list", enrichedAICs);
   } catch (err) {
     console.error("Error fetching AICs:", err);
@@ -656,7 +636,7 @@ exports.getUsersByRole = async (req, res) => {
       return sendResponse(res, EResponseCode.BADREQUEST, "Invalid role provided");
     }
 
-    const users = await USER.find({ role }, "firstName lastName email role cnic phone status")
+    const users = await USER.find({ role }, "firstName lastName email role cnic phone status territory")
     .populate('createdBy', 'firstName lastName cnic role')
     .populate('updatedBy', 'firstName lastName cnic role');
     return sendResponse(res, EResponseCode.SUCCESS, `${role} list`, users);
@@ -669,7 +649,7 @@ exports.getUsersByRole = async (req, res) => {
 exports.getAICsByUCMO = async (req, res) => {
   try {
     const { ucmoId } = req.params;
-    const aics = await USER.find({ role: 'AIC', ucmo: ucmoId }, "firstName lastName email cnic phone role status")
+    const aics = await USER.find({ role: 'AIC', ucmo: ucmoId }, "firstName lastName email cnic phone role status territory")
     .populate('createdBy', 'firstName lastName cnic role')
     .populate('updatedBy', 'firstName lastName cnic role');
     return sendResponse(res, EResponseCode.SUCCESS, "AICs under UCMO", aics);
@@ -681,7 +661,7 @@ exports.getAICsByUCMO = async (req, res) => {
 exports.getFLWsByAIC = async (req, res) => {
   try {
     const { aicId } = req.params;
-    const flws = await USER.find({ role: 'FLW', aic: aicId }, "firstName lastName email cnic phone role status")
+    const flws = await USER.find({ role: 'FLW', aic: aicId }, "firstName lastName email cnic phone role status territory")
     .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role');
     return sendResponse(res, EResponseCode.SUCCESS, "FLWs under AIC", flws);
