@@ -11,7 +11,19 @@ router
   .route("/")
   .get(controller.userList)
 
+  router
+  .route("/aic/:uc")
+  .get(controller.getAICSsByUC)
 
+
+  router
+  .route("/flw/:uc")
+  .get(controller.getFLWsByUC)
+
+
+  router
+  .route("/ucmo/:uc")
+  .get(controller.getUCMOsByUC)
 
   router
   .route("/all")

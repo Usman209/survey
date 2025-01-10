@@ -103,6 +103,73 @@ exports.users = async (req, res) => {
 
 
 
+exports.getUCMOsByUC = async (req, res) => {
+  try {
+    const { uc } = req.params; // Get UC from route parameters (e.g., "123G")
+    
+    // Query for users with role 'UCMO' and territory.uc matching the input UC
+    const ucmos = await USER.find({
+      "territory.uc": { $regex: `UC ${uc}`, $options: 'i' }, // Match UC with the given suffix (e.g., "UC 123G")
+      role: "UCMO", // Filter by the role 'UCMO'
+    });
+
+    if (ucmos.length === 0) {
+      return sendResponse(res, 404, "No UCMOs found for this UC.");
+    }
+
+    return sendResponse(res, 200, "List of UCMOs", ucmos); // Return the UCMOs
+  } catch (err) {
+    return sendResponse(res, 500, "Internal server error", err.message);
+  }
+};
+
+
+
+exports.getAICSsByUC = async (req, res) => {
+  try {
+    const { uc } = req.params; 
+    
+    const aics = await USER.find({
+      "territory.uc": { $regex: `UC ${uc}`, $options: 'i' }, 
+      role: "AIC", // Filter by the role 'UCMO'
+    });
+
+    if (aics.length === 0) {
+      return sendResponse(res, 404, "No UCMOs found for this UC.");
+    }
+
+    return sendResponse(res, 200, "List of AICs", aics); // Return the UCMOs
+  } catch (err) {
+    return sendResponse(res, 500, "Internal server error", err.message);
+  }
+};
+
+
+exports.getFLWsByUC = async (req, res) => {
+  try {
+    const { uc } = req.params; // Get UC from route parameters (e.g., "123G")
+    
+    // Query for users with role 'UCMO' and territory.uc matching the input UC
+    const flws = await USER.find({
+      "territory.uc": { $regex: `UC ${uc}`, $options: 'i' }, // Match UC with the given suffix (e.g., "UC 123G")
+      role: "FLW", // Filter by the role 'UCMO'
+    });
+
+    if (flws.length === 0) {
+      return sendResponse(res, 404, "No FLW found for this UC.");
+    }
+
+    return sendResponse(res, 200, "List of FLWs", flws); // Return the UCMOs
+  } catch (err) {
+    return sendResponse(res, 500, "Internal server error", err.message);
+  }
+};
+
+
+
+
+
+
 
 
 
