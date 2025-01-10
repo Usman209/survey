@@ -148,22 +148,37 @@ exports.getAICSsByUC = async (req, res) => {
 exports.getFLWsByUC = async (req, res) => {
   try {
     const { uc } = req.params; // Get UC from route parameters (e.g., "123G")
-    
-    // Query for users with role 'UCMO' and territory.uc matching the input UC
+
+    // Step 1: Query teams to find all FLWs that are part of any team with the specified UC
+    const teams = await Team.find({
+      "territory.uc": { $regex: `UC ${uc}`, $options: 'i' }, // Match the UC in the territory
+    }).populate("flws"); // Populate the 'flws' field to get the actual FLW objects
+
+    // Create a set of FLW IDs that are already part of a team
+    const flwsInTeams = new Set();
+    teams.forEach(team => {
+      team.flws.forEach(flw => {
+        flwsInTeams.add(flw._id.toString());
+      });
+    });
+
+    // Step 2: Query for FLWs that match the UC and role 'FLW', but exclude those already in a team
     const flws = await USER.find({
-      "territory.uc": { $regex: `UC ${uc}`, $options: 'i' }, // Match UC with the given suffix (e.g., "UC 123G")
-      role: "FLW", // Filter by the role 'UCMO'
+      "territory.uc": { $regex: `UC ${uc}`, $options: 'i' },
+      role: "FLW",
+      _id: { $nin: Array.from(flwsInTeams) }, // Exclude FLWs that are already in teams
     });
 
     if (flws.length === 0) {
-      return sendResponse(res, 404, "No FLW found for this UC.");
+      return sendResponse(res, 404, "No FLWs found for this UC who are not in any team.");
     }
 
-    return sendResponse(res, 200, "List of FLWs", flws); // Return the UCMOs
+    return sendResponse(res, 200, "List of FLWs not in any team", flws);
   } catch (err) {
     return sendResponse(res, 500, "Internal server error", err.message);
   }
 };
+
 
 
 
@@ -913,9 +928,9 @@ exports.addUmco = async (req, res) => {
 
 exports.addAic = async (req, res) => {
   try {
-    if (!req.body.ucmo) {
-      return errReturned(res, "ucmo is required.");
-    }
+    // if (!req.body.ucmo) {
+    //   return errReturned(res, "ucmo is required.");
+    // }
     const result = await addUserWithRole(req, res, "AIC");
     if (result) {
       await redisClient.del('aic_list');
@@ -928,9 +943,9 @@ exports.addAic = async (req, res) => {
 
 exports.addFlw = async (req, res) => {
   try {
-    if (!req.body.aic) {
-      return errReturned(res, "aic is required.");
-    }
+    // if (!req.body.aic) {
+    //   return errReturned(res, "aic is required.");
+    // }
     const result = await addUserWithRole(req, res, "FLW");
     if (result) {
       await redisClient.del('flw_list');
