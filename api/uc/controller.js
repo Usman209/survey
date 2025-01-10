@@ -18,11 +18,19 @@ exports.createUc = async (req, res) => {
 exports.getAllUcs = async (req, res) => {
   try {
     const ucs = await Uc.find();
-    return sendResponse(res, 200, "Ucs retrieved successfully.", ucs);
+    
+    // Modify the 'name' field to remove 'UC' and the space
+    const modifiedUcs = ucs.map(uc => ({
+      ...uc.toObject(),  // convert to plain object if it's a mongoose document
+      name: uc.name.replace('UC ', '')  // Remove 'UC ' from the name
+    }));
+
+    return sendResponse(res, 200, "Ucs retrieved successfully.", modifiedUcs);
   } catch (error) {
     return errReturned(res, error.message);
   }
 };
+
 
 // Get a single uc by ID
 exports.getUcById = async (req, res) => {
