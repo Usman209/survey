@@ -418,6 +418,13 @@ exports.updateAic = async (req, res) => {
       return res.status(400).json({ message: 'New user\'s territory.uc must match the current user\'s territory.uc.' });
     }
 
+
+    const existingTeams = await Team.find({ ucmo: newUser._id });
+
+    if (existingTeams.length > 0) {
+      return res.status(400).json({ message: 'Please release the new AIC from previous teams first.' });
+    }
+
     // Find all teams associated with the current AIC (based on their ObjectId)
     const teams = await Team.find({ aic: currentUser._id });
 
@@ -446,10 +453,13 @@ exports.updateUcmo = async (req, res) => {
 
   try {
     // Find the current AIC user by CNIC
-    const currentUser = await USER.findOne({ cnic: currentCnic,  role: "UCMO" }).select("_id cnic role territory");
+    const currentUser = await USER.findOne({ cnic: currentCnic,  role: "UCMO" }).select("_id cnic role territory");    
 
     // Find the new AIC user by CNIC
     const newUser = await USER.findOne({ cnic: newCnic, role: "UCMO" }).select("_id cnic role territory");
+
+    console.log(newUser);
+
 
     // Check if the current user exists and has the role other than ADMIN
     if (!currentUser) {
@@ -467,6 +477,13 @@ exports.updateUcmo = async (req, res) => {
     // Check if the new user's territory.uc matches the current user's territory.uc
     if (currentUser.territory.uc !== newUser.territory.uc) {
       return res.status(400).json({ message: 'New user\'s territory.uc must match the current user\'s territory.uc.' });
+    }
+
+
+    const existingTeams = await Team.find({ ucmo: newUser._id });
+
+    if (existingTeams.length > 0) {
+      return res.status(400).json({ message: 'Please release the new UCMO from previous teams first.' });
     }
 
     // Find all teams associated with the current AIC (based on their ObjectId)

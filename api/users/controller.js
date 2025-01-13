@@ -109,7 +109,7 @@ exports.getUCMOsByUC = async (req, res) => {
     
     // Query for users with role 'UCMO' and territory.uc matching the input UC
     const ucmos = await USER.find({
-      "territory.uc": { $regex: `UC ${uc}`, $options: 'i' }, // Match UC with the given suffix (e.g., "UC 123G")
+      "territory.uc": uc,
       role: "UCMO", // Filter by the role 'UCMO'
     });
 
@@ -130,7 +130,7 @@ exports.getAICSsByUC = async (req, res) => {
     const { uc } = req.params; 
     
     const aics = await USER.find({
-      "territory.uc": { $regex: `UC ${uc}`, $options: 'i' }, 
+      "territory.uc":uc,
       role: "AIC", // Filter by the role 'UCMO'
     });
 
@@ -151,7 +151,7 @@ exports.getFLWsByUC = async (req, res) => {
 
     // Step 1: Query teams to find all FLWs that are part of any team with the specified UC
     const teams = await Team.find({
-      "territory.uc": { $regex: `UC ${uc}`, $options: 'i' }, // Match the UC in the territory
+      "territory.uc": uc,
     }).populate("flws"); // Populate the 'flws' field to get the actual FLW objects
 
     // Create a set of FLW IDs that are already part of a team
@@ -164,7 +164,7 @@ exports.getFLWsByUC = async (req, res) => {
 
     // Step 2: Query for FLWs that match the UC and role 'FLW', but exclude those already in a team
     const flws = await USER.find({
-      "territory.uc": { $regex: `UC ${uc}`, $options: 'i' },
+      "territory.uc": uc,
       role: "FLW",
       _id: { $nin: Array.from(flwsInTeams) }, // Exclude FLWs that are already in teams
     });
