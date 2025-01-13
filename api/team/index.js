@@ -22,6 +22,11 @@ router.get('/team/search', teamController.searchTeams);
 
 router.get('/team/all', teamController.getTeamsByUcmo); 
 
+router.post('/aic', teamController.updateAic); 
+router.post('/ucmo', teamController.updateUcmo); 
+
+
+
 
 router.get('/user/:id', teamController.getTeamDetailsByUserId); 
 

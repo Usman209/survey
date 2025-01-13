@@ -235,8 +235,6 @@ const removeFLWFromTeam = async (teamId, flwId) => {
 
 
 
-
-
 exports.updateProfile = async (req, res) => {
   try {
     const userId = req?.params?.id;
@@ -248,14 +246,29 @@ exports.updateProfile = async (req, res) => {
       return errReturned(res, error.message);
     }
 
+    // Fetch the current user profile
+    const currentUser = await USER.findById(userId).select('role territory aic flws');
+
+    // Check if the territory.uc value is changing
+    const newUc = value?.territory?.uc;
+    const currentUc = currentUser?.territory?.uc;
+
+    // If uc is changing, ensure that no other user already has this UC
+    if (newUc && newUc !== currentUc) {
+      const existingUserWithUc = await USER.findOne({
+        "territory.uc": newUc,
+      }).select('_id');
+      
+      // if (existingUserWithUc) {
+      //   return errReturned(res, `User with territory UC ${newUc} already exists.`);
+      // }
+    }
+
     // Check if a new password is provided
     if (value.password) {
       const salt = await bcrypt.genSalt(10);
       value.password = await bcrypt.hash(value.password, salt);
     }
-
-    // Fetch the current user role, AIC, and FLWs before the update
-    const currentUser = await USER.findById(userId).select('role aic flws');
 
     // Attempt to update the user profile
     const updatedProfile = await findByIdAndUpdate({
@@ -269,23 +282,58 @@ exports.updateProfile = async (req, res) => {
       return errReturned(res, "User update failed.");
     }
 
-    // // Handle FLW case if the role is FLW
-    // if (updatedProfile.role === 'FLW') {
-    //   await handleFLWUpdate(updatedProfile, currentUser, value);
-    // }
-
-    // // Handle AIC case if the role is AIC
-    // if (updatedProfile.role === 'AIC') {
-    //   await handleAICUpdate(updatedProfile, value);
-    // }
-
+    if (newUc && newUc !== currentUc) {
+      console.log(`territory.uc is changing from ${currentUc} to ${newUc}`);
+      await updateTeamsForRole(currentUser, updatedProfile);
+    } else {
+      console.log(`territory.uc did not change (current: ${currentUc}, new: ${newUc})`);
+    }
     // Invalidate caches based on role change
-    await invalidateCaches(currentUser, updatedProfile);
+    // await invalidateCaches(currentUser, updatedProfile);
 
     return sendResponse(res, EResponseCode.SUCCESS, "Profile updated successfully", updatedProfile);
   } catch (error) {
     console.error(error);
     return errReturned(res, "An error occurred while updating the profile");
+  }
+};
+const updateTeamsForRole = async (currentUser, updatedProfile) => {
+  try {
+    console.log('Updating teams for role:', updatedProfile.role);
+    const userId = updatedProfile._id;
+
+    // Handling the FLW role update (removing from team)
+    if (updatedProfile.role === 'FLW') {
+      console.log('Updating teams for FLW role...');
+      const result = await Team.updateMany(
+        { "flws": userId },  // Matching teams with this FLW
+        { $pull: { "flws": userId } }  // Pull this FLW from the teams
+      );
+      console.log(`FLW role update result: ${result.nModified} teams updated.`); // Logging nModified
+    }
+
+    // Handling the UCMO role update (removing from team)
+    if (updatedProfile.role === 'UCMO') {
+      console.log('Updating teams for UCMO role...');
+      const result = await Team.updateMany(
+        { "ucmo": userId },  // Matching teams with this UCMO
+        { $unset: { "ucmo": "" } }  // Removing the UCMO from teams
+      );
+      console.log(`UCMO role update result: ${result.nModified} teams updated.`);
+    }
+
+    // Handling the AIC role update (removing from team)
+    if (updatedProfile.role === 'AIC') {
+      console.log('Updating teams for AIC role...');
+      const result = await Team.updateMany(
+        { "aic": userId },  // Matching teams with this AIC
+        { $unset: { "aic": "" } }  // Removing the AIC from teams
+      );
+      console.log(`AIC role update result: ${result.nModified} teams updated.`);
+    }
+
+  } catch (error) {
+    console.error('Error updating teams:', error);
   }
 };
 

@@ -387,3 +387,105 @@ exports.getTeamDetailsByUserId = async (req, res) => {
     return errReturned(res, error.message);
   }
 };
+
+
+
+exports.updateAic = async (req, res) => {
+  const { currentCnic, newCnic } = req.body;
+
+  try {
+    // Find the current AIC user by CNIC
+    const currentUser = await USER.findOne({ cnic: currentCnic,role: "AIC" }).select("_id cnic role territory");
+
+    // Find the new AIC user by CNIC
+    const newUser = await USER.findOne({ cnic: newCnic, role: "AIC" }).select("_id cnic role territory");
+
+    // Check if the current user exists and has the role other than ADMIN
+    if (!currentUser) {
+      return res.status(404).json({ message: 'Current AIC not found or invalid CNIC provided.' });
+    }
+    if (!newUser) {
+      return res.status(404).json({ message: 'New AIC not found or invalid CNIC provided.' });
+    }
+
+    // Check if the new user exists and has the role "AIC"
+    if (!newUser || newUser.role !== "AIC") {
+      return res.status(400).json({ message: 'New user must have the role "AIC".' });
+    }
+
+    // Check if the new user's territory.uc matches the current user's territory.uc
+    if (currentUser.territory.uc !== newUser.territory.uc) {
+      return res.status(400).json({ message: 'New user\'s territory.uc must match the current user\'s territory.uc.' });
+    }
+
+    // Find all teams associated with the current AIC (based on their ObjectId)
+    const teams = await Team.find({ aic: currentUser._id });
+
+    if (teams.length === 0) {
+      return res.status(404).json({ message: 'No teams found for the current AIC.' });
+    }
+
+    // Update all teams to the new AIC
+    const updatePromises = teams.map(team => {
+      return Team.findByIdAndUpdate(team._id, { aic: newUser._id });
+    });
+
+    await Promise.all(updatePromises);
+
+    res.status(200).json({ message: 'AIC updated successfully for all related teams.' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error, please try again later.' });
+  }
+};
+
+
+exports.updateUcmo = async (req, res) => {
+  const { currentCnic, newCnic } = req.body;
+  
+
+  try {
+    // Find the current AIC user by CNIC
+    const currentUser = await USER.findOne({ cnic: currentCnic,  role: "UCMO" }).select("_id cnic role territory");
+
+    // Find the new AIC user by CNIC
+    const newUser = await USER.findOne({ cnic: newCnic, role: "UCMO" }).select("_id cnic role territory");
+
+    // Check if the current user exists and has the role other than ADMIN
+    if (!currentUser) {
+      return res.status(404).json({ message: 'Current UCMO not found or invalid CNIC provided.' });
+    }
+    if (!newUser) {
+      return res.status(404).json({ message: 'New UCMO not found or invalid CNIC provided.' });
+    }
+
+    // Check if the new user exists and has the role "AIC"
+    if (!newUser || newUser.role !== "UCMO") {
+      return res.status(400).json({ message: 'both user must have the role "UCMO".' });
+    }
+
+    // Check if the new user's territory.uc matches the current user's territory.uc
+    if (currentUser.territory.uc !== newUser.territory.uc) {
+      return res.status(400).json({ message: 'New user\'s territory.uc must match the current user\'s territory.uc.' });
+    }
+
+    // Find all teams associated with the current AIC (based on their ObjectId)
+    const teams = await Team.find({ ucmo: currentUser._id });
+
+    if (teams.length === 0) {
+      return res.status(404).json({ message: 'No teams found for the current AIC.' });
+    }
+
+    // Update all teams to the new AIC
+    const updatePromises = teams.map(team => {
+      return Team.findByIdAndUpdate(team._id, { ucmo: newUser._id });
+    });
+
+    await Promise.all(updatePromises);
+
+    res.status(200).json({ message: 'UCMO updated successfully for all related teams.' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error, please try again later.' });
+  }
+};
