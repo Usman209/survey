@@ -473,7 +473,7 @@ exports.updateUcmo = async (req, res) => {
     const teams = await Team.find({ ucmo: currentUser._id });
 
     if (teams.length === 0) {
-      return res.status(404).json({ message: 'No teams found for the current AIC.' });
+      return res.status(404).json({ message: 'No teams found for the current UCMO.' });
     }
 
     // Update all teams to the new AIC
