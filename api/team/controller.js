@@ -95,8 +95,8 @@ exports.createTeam = async (req, res) => {
     }
 
     // If FLW IDs are provided, check for existing team assignments
-    if (flwIds && flwIds.length > 0) {
-      const existingTeams = await Team.find({ flws: { $in: flwIds } });
+    if (flws && flws.length > 0) {
+      const existingTeams = await Team.find({ flws: { $in: flws } });
       if (existingTeams.length > 0) {
         return errReturned(res, "One or more FLWs are already assigned to another team.");
       }

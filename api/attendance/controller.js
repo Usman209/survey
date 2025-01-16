@@ -16,6 +16,8 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   
   exports.createAttendance = async (req, res) => {
     try {
+
+      console.log(req.body)
       const { userData, qrCodeData } = req.body;
   
       // 1. Validate the QR code start and end time
