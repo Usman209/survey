@@ -12,13 +12,13 @@ router
   .get(controller.userList)
 
   router
-  .route("/aic/:uc/:siteType?")
+  .route("/aic/:uc")
   .get(controller.getAICSsByUC);
 
 
 
   router
-  .route("/flw/:uc")
+  .route("/flw/:uc/:siteType?")
   .get(controller.getFLWsByUC)
 
 

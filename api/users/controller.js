@@ -147,7 +147,8 @@ exports.getAICSsByUC = async (req, res) => {
 
 exports.getFLWsByUC = async (req, res) => {
   try {
-    const { uc, siteType } = req.params; // Get UC and siteType from route parameters (e.g., "123G", "Trsite site")
+    const { uc } = req.params; // Get UC from the route parameters (e.g., "110A")
+    const { siteType } = req.query; // Get siteType from the query parameters (e.g., ?siteType=Fixed)
 
     // Step 1: Query teams to find all FLWs that are part of any team with the specified UC
     const teams = await Team.find({
@@ -164,23 +165,27 @@ exports.getFLWsByUC = async (req, res) => {
 
     // Step 2: Construct the query for FLWs
     const query = {
-      "territory.uc": uc,
+      "territory.uc": uc, // Ensure that we filter by UC
       role: "FLW",
       _id: { $nin: Array.from(flwsInTeams) }, // Exclude FLWs that are already in teams
     };
 
     // If siteType is passed and is valid, include it in the query
     if (siteType && ['Trsite', 'Fixed'].includes(siteType)) {
-      query.siteType = siteType; // Filter by siteType if provided
+      query.siteType = siteType; // Filter by siteType if provided and valid
     }
+
 
     // Step 3: Query for FLWs based on the constructed query
     const flws = await USER.find(query);
 
+
+    // If no FLWs found, return an appropriate message
     if (flws.length === 0) {
-      return sendResponse(res, 404, "No FLWs found for this UC who are not in any team.");
+      return sendResponse(res, 404, `No FLWs found for UC ${uc} and siteType ${siteType ? siteType : "any"}.`);
     }
 
+    // Return the list of FLWs who are not in any team
     return sendResponse(res, 200, "List of FLWs not in any team", flws);
   } catch (err) {
     return sendResponse(res, 500, "Internal server error", err.message);
