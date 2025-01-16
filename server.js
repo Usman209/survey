@@ -110,7 +110,8 @@ const PORT = process.env.PORT || 4000;  // Fallback to 4000 if PORT is not set
 
 const server = require("http").createServer(app);
 
-server.listen(PORT, () => {
+// Bind to 0.0.0.0 to allow access from other devices on the network
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is listening on port ${PORT}`);
 });
 

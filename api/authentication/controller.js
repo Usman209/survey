@@ -58,7 +58,11 @@ exports.login = async (req, res) => {
       phone: user.contact,
       role: user.role,
       needsPasswordReset: user.isFirstLogin === undefined ? 'true' : (user.isFirstLogin ? 'true' : 'false'),
+      territory:user.territory,
+      type:user?.siteType,
     };
+
+// area 
 
     // Generate JWT token
     const token = jwt.sign(response, process.env.TOKEN_SECRET, {

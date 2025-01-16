@@ -235,6 +235,70 @@ const removeFLWFromTeam = async (teamId, flwId) => {
 
 
 
+// exports.updateProfile = async (req, res) => {
+//   try {
+//     const userId = req?.params?.id;
+
+//     const { error, value } = updateProfileSchemaValidator.validate(req.body, {
+//       stripUnknown: true,
+//     });
+//     if (error) {
+//       return errReturned(res, error.message);
+//     }
+
+//     // Fetch the current user profile
+//     const currentUser = await USER.findById(userId).select('role territory aic flws');
+
+//     // Check if the territory.uc value is changing
+//     const newUc = value?.territory?.uc;
+//     const currentUc = currentUser?.territory?.uc;
+
+//     // If uc is changing, ensure that no other user already has this UC
+//     if (newUc && newUc !== currentUc) {
+//       const existingUserWithUc = await USER.findOne({
+//         "territory.uc": newUc,
+//       }).select('_id');
+      
+//       // if (existingUserWithUc) {
+//       //   return errReturned(res, `User with territory UC ${newUc} already exists.`);
+//       // }
+//     }
+
+//     // Check if a new password is provided
+//     if (value.password) {
+//       const salt = await bcrypt.genSalt(10);
+//       value.password = await bcrypt.hash(value.password, salt);
+//     }
+
+//     // Attempt to update the user profile
+//     const updatedProfile = await findByIdAndUpdate({
+//       model: USER,
+//       id: userId,
+//       updateData: value,
+//     });
+
+//     // Ensure the user was successfully updated
+//     if (!updatedProfile) {
+//       return errReturned(res, "User update failed.");
+//     }
+
+//     if (newUc && newUc !== currentUc) {
+//       console.log(`territory.uc is changing from ${currentUc} to ${newUc}`);
+//       await updateTeamsForRole(currentUser, updatedProfile);
+//     } else {
+//       console.log(`territory.uc did not change (current: ${currentUc}, new: ${newUc})`);
+//     }
+//     // Invalidate caches based on role change
+//     // await invalidateCaches(currentUser, updatedProfile);
+
+//     return sendResponse(res, EResponseCode.SUCCESS, "Profile updated successfully", updatedProfile);
+//   } catch (error) {
+//     console.error(error);
+//     return errReturned(res, "An error occurred while updating the profile");
+//   }
+// };
+
+
 exports.updateProfile = async (req, res) => {
   try {
     const userId = req?.params?.id;
@@ -253,16 +317,10 @@ exports.updateProfile = async (req, res) => {
     const newUc = value?.territory?.uc;
     const currentUc = currentUser?.territory?.uc;
 
-    // If uc is changing, ensure that no other user already has this UC
-    if (newUc && newUc !== currentUc) {
-      const existingUserWithUc = await USER.findOne({
-        "territory.uc": newUc,
-      }).select('_id');
-      
-      // if (existingUserWithUc) {
-      //   return errReturned(res, `User with territory UC ${newUc} already exists.`);
-      // }
-    }
+
+    // Check if the role is changing
+    const newRole = value?.role;
+    const currentRole = currentUser?.role;
 
     // Check if a new password is provided
     if (value.password) {
@@ -282,12 +340,20 @@ exports.updateProfile = async (req, res) => {
       return errReturned(res, "User update failed.");
     }
 
+    // If the territory.uc has changed, update related teams
     if (newUc && newUc !== currentUc) {
       console.log(`territory.uc is changing from ${currentUc} to ${newUc}`);
-      await updateTeamsForRole(currentUser, updatedProfile);
-    } else {
-      console.log(`territory.uc did not change (current: ${currentUc}, new: ${newUc})`);
+      await updateTeams(currentUser, updatedProfile);
     }
+
+    // If the role has changed, update related teams or perform other necessary logic
+    if (newRole && newRole !== currentRole) {
+      console.log(`role is changing from ${currentRole} to ${newRole}`);
+      await updateTeams(currentUser, updatedProfile);
+    } else {
+      console.log(`role did not change (current: ${currentRole}, new: ${newRole})`);
+    }
+
     // Invalidate caches based on role change
     // await invalidateCaches(currentUser, updatedProfile);
 
@@ -297,7 +363,12 @@ exports.updateProfile = async (req, res) => {
     return errReturned(res, "An error occurred while updating the profile");
   }
 };
-const updateTeamsForRole = async (currentUser, updatedProfile) => {
+
+
+
+
+
+const updateTeams = async (currentUser, updatedProfile) => {
   try {
     console.log('Updating teams for role:', updatedProfile.role);
     const userId = updatedProfile._id;

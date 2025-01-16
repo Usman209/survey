@@ -73,36 +73,53 @@ exports.createTeam = async (req, res) => {
       return errReturned(res, "UC is required.");
     }
 
-    let teamName = req.body.teamName;
+    const { teamName, siteType, location, flws } = req.body;
 
-    // If teamName is provided in the request, check if it already exists in the database
-    if (teamName) {
-      const existingTeam = await Team.findOne({ teamName });
-
-      if (existingTeam) {
-        return errReturned(res, "The team name already exists.");
-      }
-    } else {
-      // If no teamName is provided, generate a unique team name as before
-      teamName = await generateUniqueTeamName(uc);
+    // Check if siteType and location are provided
+    if (!siteType || !location) {
+      return errReturned(res, "Site type and location are required.");
     }
 
-    const flwIds = req.body.flws;
+    // Ensure the team name is provided if siteType is selected
+    if (siteType && !teamName) {
+      return errReturned(res, "Team name must be provided when site type is selected.");
+    }
+
+    // If no teamName is provided and siteType is not selected, generate a unique team name
+    let generatedTeamName = teamName || await generateUniqueTeamName(uc);
+
+    // Check if teamName already exists in the database
+    const existingTeam = await Team.findOne({ teamName: generatedTeamName });
+    if (existingTeam) {
+      return errReturned(res, "The team name already exists.");
+    }
+
+    // If FLW IDs are provided, check for existing team assignments
     if (flwIds && flwIds.length > 0) {
       const existingTeams = await Team.find({ flws: { $in: flwIds } });
-
       if (existingTeams.length > 0) {
         return errReturned(res, "One or more FLWs are already assigned to another team.");
       }
     }
 
-    // Create the new team with the given or generated teamName
+    // Create the new team
     const team = new Team({
       ...req.body,
-      teamName,
+      teamName: generatedTeamName,
+      siteType,  // Store siteType in team
+      location,  // Store location in team
     });
 
     const savedTeam = await team.save();
+
+    // Update users with the siteType and location if they're part of this team
+    if (flwIds && flwIds.length > 0) {
+      await User.updateMany(
+        { _id: { $in: flwIds } },
+        { $set: { team: savedTeam._id, siteType, location } }  // Add siteType and location to users
+      );
+    }
+
     await redisClient.del('all_teams'); // Invalidate cache
     await redisClient.del('flw_list');
 
@@ -111,6 +128,7 @@ exports.createTeam = async (req, res) => {
     return errReturned(res, error.message);
   }
 };
+
 
 exports.getAllTeams1 = async (req, res) => {
   try {
