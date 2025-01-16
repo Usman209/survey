@@ -113,9 +113,9 @@ exports.createTeam = async (req, res) => {
     const savedTeam = await team.save();
 
     // Update users with the siteType and location if they're part of this team
-    if (flwIds && flwIds.length > 0) {
+    if (flws && flws.length > 0) {
       await User.updateMany(
-        { _id: { $in: flwIds } },
+        { _id: { $in: flws } },
         { $set: { team: savedTeam._id, siteType, location } }  // Add siteType and location to users
       );
     }
