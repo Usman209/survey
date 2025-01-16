@@ -107,13 +107,13 @@ exports.createTeam = async (req, res) => {
 
     const savedTeam = await team.save();
 
-    // Update users with the siteType and location if they're part of this team
-    if (flws && flws.length > 0) {
-      await User.updateMany(
-        { _id: { $in: flws } },
-        { $set: { team: savedTeam._id, siteType, location } }  // Add siteType and location to users
-      );
-    }
+    // // Update users with the siteType and location if they're part of this team
+    // if (flws && flws.length > 0) {
+    //   await USER.updateMany(
+    //     { _id: { $in: flws } },
+    //     { $set: { team: savedTeam._id, siteType, location } }  // Add siteType and location to users
+    //   );
+    // }
 
     await redisClient.del('all_teams'); // Invalidate cache
     await redisClient.del('flw_list');
