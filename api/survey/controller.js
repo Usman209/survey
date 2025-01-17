@@ -79,8 +79,6 @@ exports.syncCollectedData = async (req, res) => {
         const collectedDataArray = req.body;
         const { data } = collectedDataArray;
 
-
-
         // Destructure the arrays from the data object
         const { 
             houses, 
@@ -89,7 +87,9 @@ exports.syncCollectedData = async (req, res) => {
             checkListForm84, 
             checkListNA, 
             checkListLock, 
-            checkList00 
+            checkList00,
+            fixedSite,   // Newly added object
+            Trsite       // Newly added object
         } = data;
 
         // Validation checks: Ensure data is not empty for the arrays
@@ -100,20 +100,19 @@ exports.syncCollectedData = async (req, res) => {
             (!checkListForm84 || checkListForm84.length === 0) &&
             (!checkListNA || checkListNA.length === 0) &&
             (!checkListLock || checkListLock.length === 0) &&
-            (!checkList00 || checkList00.length === 0)
+            (!checkList00 || checkList00.length === 0) &&
+            !(fixedSite || Trsite)  // Validate that at least one of fixedSite or Trsite is provided
         ) {
             return res.status(400).json({ 
                 message: 'Data is empty. Please provide data to sync.' 
             });
         }
 
-
         // Send immediate response
         const response = {
             message: 'Data received. We will process your records soon.',
-            code:200
+            code: 200
         };
-
         res.status(200).json(response);
 
         // Get the current date in YYYY-MM-DD format
@@ -128,6 +127,8 @@ exports.syncCollectedData = async (req, res) => {
             checkListNA,
             checkListLock,
             checkList00,
+            fixedSite,   // Pass the fixedSite object
+            Trsite,      // Pass the Trsite object
             currentDate
         });
 
@@ -145,7 +146,7 @@ exports.syncCollectedData = async (req, res) => {
 
 syncDataQueue.process(5, async (job) => {
     try {
-        const { houses, schools, streetChildren, checkListForm84, checkListNA, checkListLock, checkList00, currentDate } = job.data;
+        const { houses, schools, streetChildren, checkListForm84, checkListNA, checkListLock, checkList00, currentDate,fixedSite,Trsite } = job.data;
 
         // Function to add isProcessed: false to each object if the array is not empty
         const addIsProcessedField = (dataArray) => {
@@ -290,6 +291,46 @@ syncDataQueue.process(5, async (job) => {
                 await insertDataToCollection(checkList00CollectionName, [checkList00Data]);
             }
         }
+
+ // Handle fixedSite data
+ if (fixedSite && fixedSite.length > 0) {
+    const fixedSiteCollectionName = `fixedSite_${currentDate}`;
+    const processedFixedSite = addIsProcessedField(fixedSite);  // Add isProcessed field to each fixedSite if the array is not empty
+    for (let site of processedFixedSite) {
+        const fixedSiteData = {
+            ...site,
+            addedAt: new Date(site.addedAt),
+            updatedAt: new Date(site.updatedAt || site.addedAt),
+            campaignId: new mongoose.Types.ObjectId(site.campaignId),
+            user: site.user ? {
+                ...site.user,
+                id: new mongoose.Types.ObjectId(site.user.id)
+            } : null
+        };
+        await insertDataToCollection(fixedSiteCollectionName, [fixedSiteData]);
+    }
+}
+
+// Handle Trsite data
+if (Trsite && Trsite.length > 0) {
+    const trsiteCollectionName = `Trsite_${currentDate}`;
+    const processedTrsite = addIsProcessedField(Trsite);  // Add isProcessed field to each Trsite if the array is not empty
+    for (let site of processedTrsite) {
+        const trsiteData = {
+            ...site,
+            addedAt: new Date(site.addedAt),
+            updatedAt: new Date(site.updatedAt || site.addedAt),
+            campaignId: new mongoose.Types.ObjectId(site.campaignId),
+            user: site.user ? {
+                ...site.user,
+                id: new mongoose.Types.ObjectId(site.user.id)
+            } : null
+        };
+        await insertDataToCollection(trsiteCollectionName, [trsiteData]);
+    }
+}
+
+
 
         console.log('Data successfully processed and inserted.');
 
