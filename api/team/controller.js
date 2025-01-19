@@ -188,9 +188,72 @@ exports.getTeamById = async (req, res) => {
   }
 };
 
+// exports.updateTeam = async (req, res) => {
+//   try {
+ 
+//     const updateData = Object.fromEntries(
+//       Object.entries(req.body).filter(([_, value]) => value !== null) // Ensure no null values are included
+//     );
+
+//     // Check if territory and uc are valid if being updated
+//     if (updateData.territory?.uc) {
+//       if (typeof updateData.territory.uc !== 'string' || updateData.territory.uc.trim() === '') {
+//         return errReturned(res, "Invalid UC value provided.");
+//       }
+
+//       // Handle the teamName logic when 'territory.uc' is updated
+//       if (updateData.teamName) {
+//         // Check if the provided teamName is a valid string
+//         if (typeof updateData.teamName !== 'string' || updateData.teamName.trim() === '') {
+//           return errReturned(res, "Invalid team name provided.");
+//         }
+
+//         // Check if teamName already exists
+//         const existingTeam = await Team.findOne({ teamName: updateData.teamName });
+//         if (existingTeam) {
+//           return errReturned(res, "The team name already exists.");
+//         }
+//       } else {
+//         // If no teamName is provided, generate a unique team name based on 'territory.uc'
+//         const newTeamName = await generateUniqueTeamName(updateData.territory.uc);
+//         updateData.teamName = newTeamName; // Update team name
+//       }
+//     } else if (updateData.teamName) {
+//       // If only teamName is being updated (territory.uc is not updated)
+//       if (typeof updateData.teamName !== 'string' || updateData.teamName.trim() === '') {
+//         return errReturned(res, "Invalid team name provided.");
+//       }
+
+//       // Check if the provided teamName already exists
+//       const existingTeam = await Team.findOne({ teamName: updateData.teamName });
+//       if (existingTeam) {
+//         return errReturned(res, "The team name already exists.");
+//       }
+//     }
+
+//     // Proceed to update the team
+//     const updatedTeam = await Team.findByIdAndUpdate(req.params.id, updateData, { new: true });
+
+//     if (!updatedTeam) {
+//       return errReturned(res, "Team not found.");
+//     }
+
+//     // Cache invalidation: Ensure that caches are cleared after successful update
+//     await redisClient.del('all_teams');
+//     await redisClient.del('flw_list');
+
+//     return sendResponse(res, 200, "Team updated successfully.", updatedTeam);
+//   } catch (error) {
+//     // Catch unexpected errors and return a safe message
+//     console.error(error); // Log the error for debugging purposes
+//     return errReturned(res, "An unexpected error occurred while updating the team.");
+//   }
+// };
+
+
+
 exports.updateTeam = async (req, res) => {
   try {
- 
     const updateData = Object.fromEntries(
       Object.entries(req.body).filter(([_, value]) => value !== null) // Ensure no null values are included
     );
@@ -231,11 +294,92 @@ exports.updateTeam = async (req, res) => {
       }
     }
 
-    // Proceed to update the team
+    // Get the existing team by ID
+    const existingTeam = await Team.findById(req.params.id);
+
+    if (!existingTeam) {
+      return errReturned(res, "Team not found.");
+    }
+
+    const { flws: existingFlws, aic: existingAic, ucmo: existingUcmo } = existingTeam;
+
+    // Save the updated team
     const updatedTeam = await Team.findByIdAndUpdate(req.params.id, updateData, { new: true });
 
-    if (!updatedTeam) {
-      return errReturned(res, "Team not found.");
+    // If territory, aic or flws have been updated, we need to update related users
+    let { flws, aic, ucmo } = updateData;
+
+    if (flws) {
+      // First, check for new flws and update them accordingly
+      const usersToAdd = flws.filter(flwId => !existingFlws.includes(flwId));
+      const usersToRemove = existingFlws.filter(flwId => !flws.includes(flwId));
+
+      // Remove users from flws, set aic and ucmo to null
+      for (let flwId of usersToRemove) {
+        await User.updateOne(
+          { _id: flwId },
+          { $set: { aic: null, ucmo: null } }
+        );
+      }
+
+      // Add new users to flws, update their aic and ucmo
+      for (let flwId of usersToAdd) {
+        await User.updateOne(
+          { _id: flwId },
+          { $set: { aic, ucmo: existingUcmo.ucmo } }
+        );
+      }
+    }
+
+    // Handle the AIC update
+    if (aic && aic !== existingAic) {
+      // If AIC has changed, update the old AIC and set its ucmo to null
+      if (existingAic) {
+        await User.updateOne(
+          { _id: existingAic },
+          { $set: { ucmo: null } } // Set previous AIC's ucmo to null
+        );
+      }
+
+      // Update the new AIC's ucmo to the team's territory uc
+      await User.updateOne(
+        { _id: aic },
+        { $set: { ucmo: existingUcmo.ucmo } }
+      );
+
+      // Also update all the flws with the new AIC
+      if (flws) {
+        for (let flwId of flws) {
+          await User.updateOne(
+            { _id: flwId },
+            { $set: { aic } }  // Update each FLW with the new AIC
+          );
+        }
+      }
+    }
+
+    // Handle the UC Manager (ucmo) update
+    if (ucmo && ucmo !== existingTeam.existingUcmo.ucmo) {
+      // Update the team's ucmo (territory.uc)
+      updateData.ucmo = ucmo;
+
+      // Update users in the flws with the new ucmo
+      if (flws) {
+        for (let flwId of flws) {
+          await User.updateOne(
+            { _id: flwId },
+            { $set: { ucmo: ucmo } } // Update each FLW with the new ucmo
+          );
+        }
+      }
+
+      // Update the AIC with the new ucmo (if necessary)
+      if (aic) {
+        await User.updateOne(
+          { _id: aic },
+          { $set: { ucmo: ucmo } }  // Update AIC's ucmo with the new UC
+        );
+      }
     }
 
     // Cache invalidation: Ensure that caches are cleared after successful update
@@ -243,28 +387,55 @@ exports.updateTeam = async (req, res) => {
     await redisClient.del('flw_list');
 
     return sendResponse(res, 200, "Team updated successfully.", updatedTeam);
+
   } catch (error) {
-    // Catch unexpected errors and return a safe message
     console.error(error); // Log the error for debugging purposes
     return errReturned(res, "An unexpected error occurred while updating the team.");
   }
 };
 
 
-
 exports.deleteTeam = async (req, res) => {
   try {
+    // Find and delete the team by ID
     const deletedTeam = await Team.findByIdAndDelete(req.params.id);
-    if (!deletedTeam) return errReturned(res, "Team not found.");
-    
-    await redisClient.del('all_teams'); // Invalidate cache
-    await redisClient.del('flw_list');
+    if (!deletedTeam) {
+      return errReturned(res, "Team not found.");
+    }
 
+    // Extract the current AIC and FLWs from the deleted team
+    const { flws, aic } = deletedTeam;
+
+    // If FLWs exist, set their aic and ucmo to null
+    if (flws && flws.length > 0) {
+      for (let flwId of flws) {
+        await User.updateOne(
+          { _id: flwId },
+          { $set: { aic: null, ucmo: null } }
+        );
+      }
+    }
+
+    // If there is an AIC, set its ucmo to null
+    if (aic) {
+      await User.updateOne(
+        { _id: aic },
+        { $set: { ucmo: null } }
+      );
+    }
+
+    // Invalidate cache
+    await redisClient.del('all_teams'); // Clear the cache for all teams
+    await redisClient.del('flw_list');  // Clear the cache for field workers
+
+    // Respond with success
     return sendResponse(res, 200, "Team deleted successfully.");
   } catch (error) {
+    console.error(error); // Log the error for debugging purposes
     return errReturned(res, error.message);
   }
 };
+
 
 // Fetch teams by UCMO or AIC
 exports.getTeamsByUcmo = async (req, res) => {
