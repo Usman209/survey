@@ -316,7 +316,7 @@ exports.updateTeam = async (req, res) => {
 
       // Remove users from flws, set aic and ucmo to null
       for (let flwId of usersToRemove) {
-        await User.updateOne(
+        await USER.updateOne(
           { _id: flwId },
           { $set: { aic: null, ucmo: null } }
         );
@@ -324,7 +324,7 @@ exports.updateTeam = async (req, res) => {
 
       // Add new users to flws, update their aic and ucmo
       for (let flwId of usersToAdd) {
-        await User.updateOne(
+        await USER.updateOne(
           { _id: flwId },
           { $set: { aic, ucmo: existingUcmo.ucmo } }
         );
@@ -335,14 +335,14 @@ exports.updateTeam = async (req, res) => {
     if (aic && aic !== existingAic) {
       // If AIC has changed, update the old AIC and set its ucmo to null
       if (existingAic) {
-        await User.updateOne(
+        await USER.updateOne(
           { _id: existingAic },
           { $set: { ucmo: null } } // Set previous AIC's ucmo to null
         );
       }
 
       // Update the new AIC's ucmo to the team's territory uc
-      await User.updateOne(
+      await USER.updateOne(
         { _id: aic },
         { $set: { ucmo: existingUcmo.ucmo } }
       );
@@ -350,7 +350,7 @@ exports.updateTeam = async (req, res) => {
       // Also update all the flws with the new AIC
       if (flws) {
         for (let flwId of flws) {
-          await User.updateOne(
+          await USER.updateOne(
             { _id: flwId },
             { $set: { aic } }  // Update each FLW with the new AIC
           );
@@ -359,14 +359,14 @@ exports.updateTeam = async (req, res) => {
     }
 
     // Handle the UC Manager (ucmo) update
-    if (ucmo && ucmo !== existingTeam.existingUcmo.ucmo) {
+    if (ucmo && ucmo !== existingTeam.ucmo) {
       // Update the team's ucmo (territory.uc)
       updateData.ucmo = ucmo;
 
       // Update users in the flws with the new ucmo
       if (flws) {
         for (let flwId of flws) {
-          await User.updateOne(
+          await USER.updateOne(
             { _id: flwId },
             { $set: { ucmo: ucmo } } // Update each FLW with the new ucmo
           );
@@ -375,7 +375,7 @@ exports.updateTeam = async (req, res) => {
 
       // Update the AIC with the new ucmo (if necessary)
       if (aic) {
-        await User.updateOne(
+        await USER.updateOne(
           { _id: aic },
           { $set: { ucmo: ucmo } }  // Update AIC's ucmo with the new UC
         );
