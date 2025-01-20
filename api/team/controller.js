@@ -409,7 +409,7 @@ exports.deleteTeam = async (req, res) => {
     // If FLWs exist, set their aic and ucmo to null
     if (flws && flws.length > 0) {
       for (let flwId of flws) {
-        await User.updateOne(
+        await USER.updateOne(
           { _id: flwId },
           { $set: { aic: null, ucmo: null } }
         );
@@ -418,7 +418,7 @@ exports.deleteTeam = async (req, res) => {
 
     // If there is an AIC, set its ucmo to null
     if (aic) {
-      await User.updateOne(
+      await USER.updateOne(
         { _id: aic },
         { $set: { ucmo: null } }
       );
@@ -579,7 +579,7 @@ exports.updateAic = async (req, res) => {
 
   try {
     // Find the current AIC user by CNIC
-    const currentUser = await USER.findOne({ cnic: currentCnic,role: "AIC" }).select("_id cnic role territory");
+    const currentUser = await USER.findOne({ cnic: currentCnic, role: "AIC" }).select("_id cnic role territory");
 
     // Find the new AIC user by CNIC
     const newUser = await USER.findOne({ cnic: newCnic, role: "AIC" }).select("_id cnic role territory");
@@ -593,7 +593,7 @@ exports.updateAic = async (req, res) => {
     }
 
     // Check if the new user exists and has the role "AIC"
-    if (!newUser || newUser.role !== "AIC") {
+    if (newUser.role !== "AIC") {
       return res.status(400).json({ message: 'New user must have the role "AIC".' });
     }
 
@@ -602,28 +602,44 @@ exports.updateAic = async (req, res) => {
       return res.status(400).json({ message: 'New user\'s territory.uc must match the current user\'s territory.uc.' });
     }
 
-
+    // Check if the new user is already assigned to any team (they can't be part of any team currently)
     const existingTeams = await Team.find({ ucmo: newUser._id });
-
     if (existingTeams.length > 0) {
       return res.status(400).json({ message: 'Please release the new AIC from previous teams first.' });
     }
 
     // Find all teams associated with the current AIC (based on their ObjectId)
     const teams = await Team.find({ aic: currentUser._id });
-
     if (teams.length === 0) {
       return res.status(404).json({ message: 'No teams found for the current AIC.' });
     }
 
-    // Update all teams to the new AIC
-    const updatePromises = teams.map(team => {
-      return Team.findByIdAndUpdate(team._id, { aic: newUser._id });
+    // Update all teams to the new AIC and adjust users (flws)
+    const updatePromises = teams.map(async (team) => {
+      // Update the team with the new AIC
+      await Team.findByIdAndUpdate(team._id, { aic: newUser._id });
+
+      // Update the UCMO for the new AIC user (set to team's UCMO)
+      await USER.findByIdAndUpdate(newUser._id, { $set: { ucmo: team.ucmo } });
+
+      // Update all FLWs in the team to reflect the new AIC
+      const flwPromises = team.flws.map(async (flwId) => {
+        await USER.findByIdAndUpdate(flwId, { $set: { aic: newUser._id } });
+      });
+
+      // Wait for FLW updates to complete
+      await Promise.all(flwPromises);
     });
 
+    // Update the current AIC user: set their UCMO to null
+    await USER.findByIdAndUpdate(currentUser._id, { $set: { ucmo: null } });
+
+    // Wait for all team updates to complete
     await Promise.all(updatePromises);
 
+    // Send success response
     res.status(200).json({ message: 'AIC updated successfully for all related teams.' });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error, please try again later.' });
@@ -631,21 +647,18 @@ exports.updateAic = async (req, res) => {
 };
 
 
+
 exports.updateUcmo = async (req, res) => {
   const { currentCnic, newCnic } = req.body;
-  
 
   try {
-    // Find the current AIC user by CNIC
-    const currentUser = await USER.findOne({ cnic: currentCnic,  role: "UCMO" }).select("_id cnic role territory");    
+    // Find the current UCMO user by CNIC
+    const currentUser = await USER.findOne({ cnic: currentCnic, role: "UCMO" }).select("_id cnic role territory");
 
-    // Find the new AIC user by CNIC
+    // Find the new UCMO user by CNIC
     const newUser = await USER.findOne({ cnic: newCnic, role: "UCMO" }).select("_id cnic role territory");
 
-    console.log(newUser);
-
-
-    // Check if the current user exists and has the role other than ADMIN
+    // Check if the current user exists and has the role "UCMO"
     if (!currentUser) {
       return res.status(404).json({ message: 'Current UCMO not found or invalid CNIC provided.' });
     }
@@ -653,9 +666,9 @@ exports.updateUcmo = async (req, res) => {
       return res.status(404).json({ message: 'New UCMO not found or invalid CNIC provided.' });
     }
 
-    // Check if the new user exists and has the role "AIC"
-    if (!newUser || newUser.role !== "UCMO") {
-      return res.status(400).json({ message: 'both user must have the role "UCMO".' });
+    // Ensure both users have the role "UCMO"
+    if (newUser.role !== "UCMO") {
+      return res.status(400).json({ message: 'New user must have the role "UCMO".' });
     }
 
     // Check if the new user's territory.uc matches the current user's territory.uc
@@ -663,28 +676,44 @@ exports.updateUcmo = async (req, res) => {
       return res.status(400).json({ message: 'New user\'s territory.uc must match the current user\'s territory.uc.' });
     }
 
-
+    // Check if the new user is already assigned to any team
     const existingTeams = await Team.find({ ucmo: newUser._id });
-
     if (existingTeams.length > 0) {
       return res.status(400).json({ message: 'Please release the new UCMO from previous teams first.' });
     }
 
-    // Find all teams associated with the current AIC (based on their ObjectId)
+    // Find all teams associated with the current UCMO
     const teams = await Team.find({ ucmo: currentUser._id });
-
     if (teams.length === 0) {
       return res.status(404).json({ message: 'No teams found for the current UCMO.' });
     }
 
-    // Update all teams to the new AIC
-    const updatePromises = teams.map(team => {
-      return Team.findByIdAndUpdate(team._id, { ucmo: newUser._id });
+    // Update all teams to the new UCMO
+    const updatePromises = teams.map(async (team) => {
+      // Update the team with the new UCMO
+      await Team.findByIdAndUpdate(team._id, { ucmo: newUser._id });
+
+      // Update all AICs in the teams to reflect the new UCMO (in case the team has an AIC)
+      if (team.aic) {
+        await USER.findByIdAndUpdate(team.aic, { $set: { ucmo: newUser._id } });
+      }
+
+      // Update all FLWs in the team to reflect the new UCMO
+      const flwPromises = team.flws.map(async (flwId) => {
+        await USER.findByIdAndUpdate(flwId, { $set: { ucmo: newUser._id } });
+      });
+
+      // Wait for FLW updates to complete
+      await Promise.all(flwPromises);
     });
 
+    // Wait for all team updates to complete
     await Promise.all(updatePromises);
 
-    res.status(200).json({ message: 'UCMO updated successfully for all related teams.' });
+    // Finally, update the current UCMO user by setting their ucmo field to null
+    await USER.findByIdAndUpdate(currentUser._id, { $set: { ucmo: null } });
+
+    res.status(200).json({ message: 'UCMO updated successfully for all related teams and users.' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error, please try again later.' });
