@@ -54,10 +54,14 @@ async function insertDataToCollection(collectionName, data) {
         // Loop through each record and insert individually
         for (const record of data) {
             try {
-                // Add `isProcessed: false` to each record
+                // Get the current date and time
+                const currentDateTime = moment().toISOString();  // Formats as '2025-01-23T13:45:45.314Z'
+
+                // Add `isProcessed: false` and `addedAtServer` to each record
                 const processedRecord = {
                     ...record,
                     isProcessed: false,  // Add the "isProcessed" flag
+                    addedAtServer: currentDateTime  // Add the current date and time
                 };
 
                 // Insert each record individually using insertOne
