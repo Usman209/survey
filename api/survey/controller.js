@@ -66,6 +66,7 @@ async function insertDataToCollection(collectionName, data) {
 
                 // Insert each record individually using insertOne
                 const result = await collection.insertOne(processedRecord);
+                // for test 
 
             } catch (error) {
                 console.error(`Error inserting record into ${collectionName}:`, error);
