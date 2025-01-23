@@ -38,7 +38,7 @@ exports.login = async (req, res) => {
 
     // If isMobile is "true", check the version number
     if (isMobile === "true") {
-      if (versionNo !== "1.0.3") {
+      if (versionNo !== "1.0.4") {
         return errReturned(res, "Please update your mobile app.");
       }
     }
