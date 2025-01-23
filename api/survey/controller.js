@@ -108,7 +108,8 @@ exports.syncCollectedData = async (req, res) => {
             (!checkListNA || checkListNA.length === 0) &&
             (!checkListLock || checkListLock.length === 0) &&
             (!checkList00 || checkList00.length === 0) &&
-            !(fixedSite || Trsite)  // Validate that at least one of fixedSite or Trsite is provided
+            (!fixedSite ||  fixedSite.length === 0 ) &&
+            (!Trsite ||  Trsite.length === 0 )   
         ) {
             return res.status(400).json({ 
                 message: 'Data is empty. Please provide data to sync.' 
