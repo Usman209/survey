@@ -36,12 +36,12 @@ exports.login = async (req, res) => {
       return errReturned(res, "Invalid login attempt.");
     }
 
-    // If isMobile is "true", check the version number
     if (isMobile === "true") {
-      if (versionNo !== "1.0.6") {
+      if (versionNo !== "1.0.6" && versionNo !== "1.0.5") {
         return errReturned(res, "Please update your mobile app.");
       }
     }
+    
 
 
 
