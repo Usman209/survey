@@ -73,12 +73,17 @@ exports.createTeam = async (req, res) => {
       return errReturned(res, "UC is required.");
     }
 
-    const { teamName, siteType, location, flws } = req.body;
+    const { teamName, siteType, location, flws, aicUserId } = req.body;  // Assuming `aicUserId` is passed
 
+    // // Ensure siteType is either empty (not provided) or a valid value
+    // if (siteType && !['Trsite', 'Fixed'].includes(siteType)) {
+    //   return errReturned(res, "Invalid siteType value.");
+    // }
+
+    // If siteType is provided but location is empty, return an error
     if (siteType !== "" && location === "") {
       return errReturned(res, "Location is required when site type is provided.");
     }
-    
 
     // If no teamName is provided and siteType is not selected, generate a unique team name
     let generatedTeamName = teamName || await generateUniqueTeamName(uc);
@@ -98,31 +103,66 @@ exports.createTeam = async (req, res) => {
     }
 
     // Create the new team
-    const team = new Team({
+    const teamData = {
       ...req.body,
       teamName: generatedTeamName,
-      siteType,  // Store siteType in team
-      location,  // Store location in team
-    });
+    };
 
+    // Only include siteType and location if they are not empty
+    if (siteType !== "") {
+      teamData.siteType = siteType;
+    }
+    if (location !== "") {
+      teamData.location = location;
+    }
+
+    // Create the team object
+    const team = new Team(teamData);
+
+    // Save the team to the database
     const savedTeam = await team.save();
 
-    // // Update users with the siteType and location if they're part of this team
-    // if (flws && flws.length > 0) {
-    //   await USER.updateMany(
-    //     { _id: { $in: flws } },
-    //     { $set: { team: savedTeam._id, siteType, location } }  // Add siteType and location to users
-    //   );
-    // }
+    // Get the UCmo value from the team (assuming 'ucmo' is a field in the Team model)
+    const ucmoId = savedTeam.ucmo;  // Assuming `ucmo` is a field in the team schema
 
-    await redisClient.del('all_teams'); // Invalidate cache
+    // Handle FLWs case (update `ucmo` for each FLW in the array)
+    if (flws && flws.length > 0) {
+      for (const flwId of flws) {
+        // Find the user (FLW) from the database
+        const user = await USER.findById(flwId);
+        if (user) {
+          // Update the `ucmo` field for the FLW user
+          user.ucmo = ucmoId;  // Set UCmo for the user (FLW)
+
+          // Save the updated user
+          await user.save();
+        }
+      }
+    }
+
+    // Handle the AIC user case (only one AIC user)
+    if (aicUserId) {
+      // Find the AIC user by ID (assuming `aicUserId` is passed in the request)
+      const aicUser = await USER.findById(aicUserId);
+      if (aicUser) {
+        // Update the `ucmo` field for the AIC user
+        aicUser.ucmo = ucmoId;  // Set UCmo for the AIC user
+
+        // Save the updated AIC user
+        await aicUser.save();
+      }
+    }
+
+    // Invalidate cache
+    await redisClient.del('all_teams');
     await redisClient.del('flw_list');
 
-    return sendResponse(res, 201, "Team created successfully.", savedTeam);
+    return sendResponse(res, 201, "Team created and users updated with UCmo successfully.", savedTeam);
   } catch (error) {
     return errReturned(res, error.message);
   }
 };
+
 
 
 exports.getAllTeams1 = async (req, res) => {
