@@ -124,6 +124,8 @@ exports.createTeam = async (req, res) => {
 
     // Get the UCmo value from the team (assuming 'ucmo' is a field in the Team model)
     const ucmoId = savedTeam.ucmo;  // Assuming `ucmo` is a field in the team schema
+    const aicId = savedTeam.aic;  // Assuming `ucmo` is a field in the team schema
+
 
     // Handle FLWs case (update `ucmo` for each FLW in the array)
     if (flws && flws.length > 0) {
@@ -133,6 +135,8 @@ exports.createTeam = async (req, res) => {
         if (user) {
           // Update the `ucmo` field for the FLW user
           user.ucmo = ucmoId;  // Set UCmo for the user (FLW)
+          user.aic = aicId;  
+          
 
           // Save the updated user
           await user.save();
