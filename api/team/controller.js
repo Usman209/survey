@@ -75,8 +75,7 @@ exports.createTeam = async (req, res) => {
 
     const { teamName, siteType, location, flws } = req.body;
 
-    // Check if siteType and location are provided
-    if (siteType && !location) {
+    if (siteType !== "" && location === "") {
       return errReturned(res, "Location is required when site type is provided.");
     }
     
