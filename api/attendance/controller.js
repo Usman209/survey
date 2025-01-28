@@ -18,6 +18,10 @@ exports.createAttendance = async (req, res) => {
   try {
       const { userData, qrCodeData } = req.body;
 
+      const currentDate = moment().format('YYYY-MM-DD');
+      console.log(currentDate);
+      
+
       // Extract date and time from userData.attendanceTimeStamp
       const attendanceDate = moment(userData.attendanceTimeStamp).format('YYYY-MM-DD');
       const attendanceTime = moment(userData.attendanceTimeStamp).format('HH:mm:ss');
@@ -72,8 +76,26 @@ exports.createAttendance = async (req, res) => {
           return res.status(400).json({ message: "User is too far from the QR code location. Attendance cannot be marked." });
       }
 
-      // 5. Create the new attendance record
-      const newAttendance = new Attendance({
+
+      // Create the dynamic collection name based on the server's current date
+    const collectionName = `attendance_${currentDate}`;
+
+    // Check if the collection exists (by listing collections in the database)
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    const collectionExists = collections.some(collection => collection.name === collectionName);
+
+    // Define the model dynamically based on the collection existence
+    let DynamicAttendance;
+    if (collectionExists) {
+        // If collection exists, use the existing model
+        DynamicAttendance = mongoose.model(collectionName, Attendance.schema);
+    } else {
+        // If collection doesn't exist, create a new model for today's date
+        DynamicAttendance = mongoose.model(collectionName, Attendance.schema);
+    }
+
+    // 5. Create the new attendance record
+    const newAttendance = new DynamicAttendance({
           userData: {
               userLocation: userData.userLocation,
               attendanceTimeStamp: userData.attendanceTimeStamp, // Now using `attendanceTimeStamp`
