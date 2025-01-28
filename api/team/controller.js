@@ -76,9 +76,10 @@ exports.createTeam = async (req, res) => {
     const { teamName, siteType, location, flws } = req.body;
 
     // Check if siteType and location are provided
-    // if (!siteType || !location) {
-    //   return errReturned(res, "Site type and location are required.");
-    // }
+    if (siteType && !location) {
+      return errReturned(res, "Location is required when site type is provided.");
+    }
+    
 
     // If no teamName is provided and siteType is not selected, generate a unique team name
     let generatedTeamName = teamName || await generateUniqueTeamName(uc);
