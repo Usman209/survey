@@ -537,7 +537,7 @@ exports.getAllFLWs1 = async (req, res) => {
     const skip = (page - 1) * limit;
 
     // Query FLWs from database with pagination
-    const flws = await USER.find({ role: 'FLW' }, "firstName lastName email role cnic phone status createdBy updatedBy territory")
+    const flws = await USER.find({ role: 'FLW' }, "firstName lastName email role cnic phone status createdBy updatedBy siteType territory")
       .skip(skip)
       .limit(limit)
       .populate('createdBy', 'firstName lastName cnic role')
@@ -651,7 +651,7 @@ exports.getActiveFLWsAssignedToTeams = async (req, res) => {
 exports.getAllFLWs = async (req, res) => {
   try {
    
-    const flws = await USER.find({ role: 'FLW' }, "firstName lastName email role cnic phone status createdBy updatedBy territory")
+    const flws = await USER.find({ role: 'FLW' }, "firstName lastName email role cnic phone status createdBy updatedBy siteType territory")
       .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role')
       .populate('aic', 'firstName lastName cnic'); // Populate UCMO details
@@ -876,7 +876,7 @@ exports.getAICsByUCMO = async (req, res) => {
 exports.getFLWsByAIC = async (req, res) => {
   try {
     const { aicId } = req.params;
-    const flws = await USER.find({ role: 'FLW', aic: aicId }, "firstName lastName email cnic phone role status territory")
+    const flws = await USER.find({ role: 'FLW', aic: aicId }, "firstName lastName email cnic phone role status territory siteType")
     .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role');
     return sendResponse(res, EResponseCode.SUCCESS, "FLWs under AIC", flws);
