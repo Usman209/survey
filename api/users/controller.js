@@ -952,10 +952,10 @@ exports.searchUsers = async (req, res) => {
     }
 
     // Fetch users matching the query without pagination
-    const users = await USER.find(query, "firstName lastName email role cnic phone status createdBy updatedBy aic ucmo")
+    const users = await USER.find(query, "firstName lastName email role cnic phone status createdBy updatedBy aic ucmo siteType")
       .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role')
-      .populate('aic', 'firstName lastName cnic') // Populate AIC details (only if relevant)
+      .populate('aic', 'firstName lastName cnic')
       .populate('ucmo', 'firstName lastName cnic'); // Populate UCMO details (only if relevant)
 
     // Enrich users with teams' data and additional role-specific information
@@ -974,7 +974,9 @@ exports.searchUsers = async (req, res) => {
         };
 
         // Enrich with team details (if user is AIC)
-        const matchingTeams = await Team.find({ 'flws': user._id }).populate('aic', 'firstName lastName cnic').populate('ucmo', 'firstName lastName cnic');
+        const matchingTeams = await Team.find({ 'flws': user._id })
+          .populate('aic', 'firstName lastName cnic')
+          .populate('ucmo', 'firstName lastName cnic');
         const teams = matchingTeams.map(team => ({
           teamName: team.teamName,
           ucmoDetails: team.ucmo ? {
@@ -994,18 +996,23 @@ exports.searchUsers = async (req, res) => {
 
       // Handle users with 'FLW' role
       if (userDetails.role === 'FLW') {
-        const matchingTeams = await Team.find({ 'flws': user._id }).populate('aic', 'firstName lastName cnic').populate('ucmo', 'firstName lastName cnic');
+        const matchingTeams = await Team.find({ 'flws': user._id })
+          .populate('aic', 'firstName lastName cnic siteType')  // Include siteType for AIC
+          .populate('ucmo', 'firstName lastName cnic siteType'); // Include siteType for UCMO
+
         const teams = matchingTeams.map(team => ({
           teamName: team.teamName,
           ucmoDetails: team.ucmo ? {
             firstName: team.ucmo.firstName,
             lastName: team.ucmo.lastName,
-            cnic: team.ucmo.cnic
+            cnic: team.ucmo.cnic,
+            siteType: team.ucmo.siteType // Include siteType for UCMO
           } : null,
           aicDetails: team.aic ? {
             firstName: team.aic.firstName,
             lastName: team.aic.lastName,
-            cnic: team.aic.cnic
+            cnic: team.aic.cnic,
+            siteType: team.aic.siteType // Include siteType for AIC
           } : null,
         }));
 
