@@ -115,6 +115,11 @@ router.get('/inactive/:id', controller.deactivateUser);
 router.route('/:id')
 // .get( controller.userDetail)
 .get(controller.userProfile)
-.put(controller.updateProfile);
+
+router.route('/:id')
+  .put(
+    authenticateAndAuthorize([EUserRole.MANAGER, EUserRole.ADMIN]), // Middleware for authentication and authorization for both MANAGER and ADMIN
+    controller.updateProfile // Controller for updating the profile
+  );
 
 module.exports = router;

@@ -36,14 +36,18 @@ exports.login = async (req, res) => {
       return errReturned(res, "Invalid login attempt.");
     }
 
+    // Apply role check only if isMobile is "false"
+    if (isMobile === "false") {      
+      if (user.role !== "ADMIN" && user.role !== "MANAGER") {
+        return errReturned(res, "You do not have the necessary permissions to log in.");
+      }
+    }
+
     if (isMobile === "true") {
       if (versionNo !== "1.0.6" && versionNo !== "1.0.5") {
         return errReturned(res, "Please update your mobile app.");
       }
     }
-    
-
-
 
     // Validate the password
     const validPass = await bcrypt.compare(password, user.password);
@@ -58,11 +62,9 @@ exports.login = async (req, res) => {
       phone: user.contact,
       role: user.role,
       needsPasswordReset: user.isFirstLogin === undefined ? 'true' : (user.isFirstLogin ? 'true' : 'false'),
-      territory:user.territory,
-      type:user?.siteType,
+      territory: user.territory,
+      type: user?.siteType,
     };
-
-// area 
 
     // Generate JWT token
     const token = jwt.sign(response, process.env.TOKEN_SECRET, {
@@ -74,10 +76,11 @@ exports.login = async (req, res) => {
       res.header("auth-token", token).json({ token, user: response });
     }, 1000); // Delay of 1000 ms (1 second)
 
-  } catch (error) {
+  } catch (error) {    
     return errReturned(res, "Invalid login attempt.");
   }
 };
+
 
 
 
