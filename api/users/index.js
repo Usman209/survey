@@ -118,7 +118,7 @@ router.route('/:id')
 
 router.route('/:id')
   .put(
-    // authenticateAndAuthorize([EUserRole.MANAGER, EUserRole.ADMIN]), // Middleware for authentication and authorization for both MANAGER and ADMIN
+    authenticateAndAuthorize([EUserRole.MANAGER, EUserRole.ADMIN]), // Middleware for authentication and authorization for both MANAGER and ADMIN
     controller.updateProfile // Controller for updating the profile
   );
 
