@@ -1,11 +1,10 @@
 const Attendance = require("../../lib/schema/attendance.schema");
 const User = require("../../lib/schema/users.schema");
-const moment = require("moment");
+const moment = require("moment-timezone"); // Import moment-timezone
 const mongoose = require("mongoose");
 
-
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371; // Radius of
+  const R = 6371; // Radius of Earth in kilometers
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -20,43 +19,33 @@ exports.createAttendance = async (req, res) => {
   try {
       const { userData, qrCodeData } = req.body;
 
-      const currentDate = moment().format('YYYY-MM-DD');
-      console.log(currentDate);
-      
+      // Get the current date in Pakistan Standard Time (PST)
+      const currentDate = moment().tz("Asia/Karachi").format('YYYY-MM-DD'); // Current date in PST
+      console.log("Current Date in PST:", currentDate);
 
-      // Extract date and time from userData.attendanceTimeStamp
-      const attendanceDate = moment(userData.attendanceTimeStamp).format('YYYY-MM-DD');
-      const attendanceTime = moment(userData.attendanceTimeStamp).format('HH:mm:ss');
+      // Extract the date from the user's attendance timestamp in PST
+      const attendanceDate = moment(userData.attendanceTimeStamp).tz("Asia/Karachi").format('YYYY-MM-DD');
+      console.log("Extracted Attendance Date in PST:", attendanceDate);
 
-      console.log("Extracted Date:", attendanceDate);  // Outputs: 2025-01-16
-      console.log("Extracted Time:", attendanceTime);  // Outputs: 14:05:26
+      // Extract the date from the QR code timestamp in PST
+      const qrDate = moment(qrCodeData.timestamp).tz("Asia/Karachi").format('YYYY-MM-DD');
+      console.log("QR Code Date in PST:", qrDate);
 
-      // Check if the attendance time falls within the QR code's start and end time
-      const qrStartDateTime = moment(qrCodeData.timestamp).set({
-          hour: moment(qrCodeData.startTime).hour(),
-          minute: moment(qrCodeData.startTime).minute(),
-          second: moment(qrCodeData.startTime).second(),
-      });
-
-      const qrEndDateTime = moment(qrCodeData.timestamp).set({
-          hour: moment(qrCodeData.endTime).hour(),
-          minute: moment(qrCodeData.endTime).minute(),
-          second: moment(qrCodeData.endTime).second(),
-      });
-
-      const attendanceDateTime = moment(attendanceDate + " " + attendanceTime);
-
-      console.log("QR Start DateTime:", qrStartDateTime.format());
-      console.log("QR End DateTime:", qrEndDateTime.format());
-      console.log("User Attendance DateTime:", attendanceDateTime.format());
-
-      // Validate if the attendance time is within the allowed range
-      if (attendanceDateTime.isBefore(qrStartDateTime)) {
-          return res.status(400).json({ message: "Attendance cannot be marked before the start time." });
+      if (qrDate !== currentDate) {
+        return res.status(400).json({ message: "The QR code date does not match today's date. Please check the QR code." });
+      }
+  
+      // If the user's attendance date is not today
+      if (attendanceDate !== currentDate) {
+        return res.status(400).json({ message: "Your attendance date does not match today's date. Please check your data." });
       }
 
-      if (attendanceDateTime.isAfter(qrEndDateTime)) {
-          return res.status(400).json({ message: "Attendance cannot be marked after the end time." });
+
+
+
+      // Check if the attendance date matches the QR code date
+      if (attendanceDate !== qrDate) {
+          return res.status(400).json({ message: "Attendance date does not match QR code date." });
       }
 
       // 3. Check if the user exists
@@ -74,36 +63,35 @@ exports.createAttendance = async (req, res) => {
       );
 
       // If the distance is more than 50 meters, do not allow attendance marking
-      if (distance > 50) {
+      if (distance > 500) {
           return res.status(400).json({ message: "User is too far from the QR code location. Attendance cannot be marked." });
       }
 
+      // Create the dynamic collection name based on the current date
+      const collectionName = `attendance_${currentDate}`;
 
-      // Create the dynamic collection name based on the server's current date
-    const collectionName = `attendance_${currentDate}`;
+      // Check if the collection exists (by listing collections in the database)
+      const collections = await mongoose.connection.db.listCollections().toArray();
+      const collectionExists = collections.some(collection => collection.name === collectionName);
 
-    // Check if the collection exists (by listing collections in the database)
-    const collections = await mongoose.connection.db.listCollections().toArray();
-    const collectionExists = collections.some(collection => collection.name === collectionName);
+      // Define the model dynamically based on the collection existence
+      let DynamicAttendance;
+      if (collectionExists) {
+          // If collection exists, use the existing model
+          DynamicAttendance = mongoose.model(collectionName, Attendance.schema);
+      } else {
+          // If collection doesn't exist, create a new model for today's date
+          DynamicAttendance = mongoose.model(collectionName, Attendance.schema);
+      }
 
-    // Define the model dynamically based on the collection existence
-    let DynamicAttendance;
-    if (collectionExists) {
-        // If collection exists, use the existing model
-        DynamicAttendance = mongoose.model(collectionName, Attendance.schema);
-    } else {
-        // If collection doesn't exist, create a new model for today's date
-        DynamicAttendance = mongoose.model(collectionName, Attendance.schema);
-    }
-
-    // 5. Create the new attendance record
-    const newAttendance = new DynamicAttendance({
+      // 5. Create the new attendance record
+      const newAttendance = new DynamicAttendance({
           userData: {
               userLocation: userData.userLocation,
               attendanceTimeStamp: userData.attendanceTimeStamp, // Now using `attendanceTimeStamp`
               userId: userData.userId,
-              attendanceTime: moment().format("HH:mm:ss"), // Set the current attendance time
-              attendanceDate: moment().format("YYYY-MM-DD"), // Set the current attendance date
+              attendanceTime: moment().tz("Asia/Karachi").format("HH:mm:ss"), // Set the current attendance time in PST
+              attendanceDate: moment().tz("Asia/Karachi").format("YYYY-MM-DD"), // Set the current attendance date in PST
               userUc: userData.userUc,  // Include user UC
               extraInfo: userData.extraInfo || {},
           },
@@ -111,9 +99,7 @@ exports.createAttendance = async (req, res) => {
               locationName: qrCodeData.locationName || "Unknown Location",
               QrUc: qrCodeData.ucmoId,  // Include QR code UC
               location: qrCodeData.location,
-              startDate: moment(qrCodeData.timestamp).format('YYYY-MM-DD'), // Use date from QR timestamp
-              startTime: qrCodeData.startTime || "00:00:00",  // Default time if not provided
-              endTime: qrCodeData.endTime || "23:59:59",  // Default time if not provided
+              startDate: moment(qrCodeData.timestamp).tz("Asia/Karachi").format('YYYY-MM-DD'), // Use date from QR timestamp in PST
               type: qrCodeData.type || "campaign",  
               extraInfo: qrCodeData.extraInfo || {},
           },
