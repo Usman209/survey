@@ -13,6 +13,11 @@ router.post('/', teamController.createTeam);
 router.get('/',teamController.getAllTeams);
 router.get('/all',teamController.getAllTeams1);
 
+router.get('/fix',teamController.getAllFixedTeams);
+router.get('/tr',teamController.getAllTrsiteTeams);
+
+
+
 router.get('/:id', teamController.getTeamById);
 router.put('/:id', teamController.updateTeam);
 router.delete('/:id', teamController.deleteTeam);

@@ -178,14 +178,18 @@ exports.getAllTeams1 = async (req, res) => {
     // Calculate the number of items to skip for pagination
     const skip = (page - 1) * limit;
 
-    // Fetch teams from the database with pagination and populate relevant fields
-    const teams = await Team.find()
+    // Fetch teams from the database, excluding siteType: 'Fixed' and siteType: 'Trsite'
+    const teams = await Team.find({
+      siteType: { $nin: ['Fixed', 'Trsite'] } // Exclude teams with these siteTypes
+    })
       .skip(skip)
       .limit(limit)
       .populate('flws createdBy');
 
-    // Get the total number of teams for pagination info
-    const totalTeams = await Team.countDocuments();
+    // Get the total number of teams for pagination info, excluding siteType: 'Fixed' and 'Trsite'
+    const totalTeams = await Team.countDocuments({
+      siteType: { $nin: ['Fixed', 'Trsite'] }
+    });
 
     // Return the paginated teams data along with pagination info
     return sendResponse(res, 200, "Teams fetched successfully.", {
@@ -199,6 +203,72 @@ exports.getAllTeams1 = async (req, res) => {
     return errReturned(res, error.message);
   }
 };
+
+
+// Endpoint for teams with siteType: Trsite
+exports.getAllTrsiteTeams = async (req, res) => {
+  try {
+    // Get pagination parameters from query (defaults for page 1 and 10 items per page)
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    // Calculate the number of items to skip for pagination
+    const skip = (page - 1) * limit;
+
+    // Fetch teams with siteType: Trsite from the database with pagination and populate relevant fields
+    const trsiteTeams = await Team.find({ siteType: 'Trsite' })
+      .skip(skip)
+      .limit(limit)
+      .populate('flws createdBy');
+
+    // Get the total number of teams for pagination info (siteType: Trsite)
+    const totalTrsiteTeams = await Team.countDocuments({ siteType: 'Trsite' });
+
+    // Return the paginated teams data along with pagination info
+    return sendResponse(res, 200, "Trsite teams fetched successfully.", {
+      currentPage: page,
+      totalItems: totalTrsiteTeams,
+      totalPages: Math.ceil(totalTrsiteTeams / limit),
+      itemsPerPage: limit,
+      data: trsiteTeams
+    });
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+
+// Endpoint for teams with siteType: Fixed
+exports.getAllFixedTeams = async (req, res) => {
+  try {
+    // Get pagination parameters from query (defaults for page 1 and 10 items per page)
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    // Calculate the number of items to skip for pagination
+    const skip = (page - 1) * limit;
+
+    // Fetch teams with siteType: Fixed from the database with pagination and populate relevant fields
+    const fixedTeams = await Team.find({ siteType: 'Fixed' })
+      .skip(skip)
+      .limit(limit)
+      .populate('flws createdBy');
+
+    // Get the total number of teams for pagination info (siteType: Fixed)
+    const totalFixedTeams = await Team.countDocuments({ siteType: 'Fixed' });
+
+    // Return the paginated teams data along with pagination info
+    return sendResponse(res, 200, "Fixed teams fetched successfully.", {
+      currentPage: page,
+      totalItems: totalFixedTeams,
+      totalPages: Math.ceil(totalFixedTeams / limit),
+      itemsPerPage: limit,
+      data: fixedTeams
+    });
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+
 
 
 

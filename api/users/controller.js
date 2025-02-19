@@ -518,17 +518,8 @@ exports.userDetail = async (req, res) => {
 };
 
 
-// Get all FLWs with pagination
 exports.getAllFLWs1 = async (req, res) => {
   try {
-    // const cacheKey = 'flw_list';
-    // const cachedFLWs = await redisClient.get(cacheKey);
-
-    // // If cached data exists, return it
-    // if (cachedFLWs) {
-    //   return sendResponse(res, EResponseCode.SUCCESS, "FLW list", JSON.parse(cachedFLWs));
-    // }
-
     // Get pagination parameters from query (defaults for page 1 and 10 items per page)
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -536,13 +527,22 @@ exports.getAllFLWs1 = async (req, res) => {
     // Calculate the number of items to skip for pagination
     const skip = (page - 1) * limit;
 
-    // Query FLWs from database with pagination
-    const flws = await USER.find({ role: 'FLW' }, "firstName lastName email role cnic phone status createdBy updatedBy siteType territory")
+    // Query FLWs from database with pagination, excluding soft-deleted users
+    const flws = await USER.find(
+      {
+        role: 'FLW',
+        $or: [
+          { isDeleted: { $ne: true } }, // Exclude isDeleted: true
+          { isDeleted: { $exists: false } } // Include users who don't have the isDeleted field
+        ]
+      },
+      "firstName lastName email role cnic phone status createdBy updatedBy siteType territory"
+    )
       .skip(skip)
       .limit(limit)
       .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role')
-      .populate('aic', 'firstName lastName cnic'); // Populate UCMO details
+      .populate('aic', 'firstName lastName cnic'); // Populate AIC details
 
     // Fetch all teams to enrich FLWs data
     const teams = await Team.find().populate('aic', 'firstName lastName cnic')
@@ -569,14 +569,23 @@ exports.getAllFLWs1 = async (req, res) => {
       };
     }));
 
-    // Save the enriched data in cache
-    // await redisClient.set(cacheKey, JSON.stringify(enrichedFLWs)); // Set expiration time in seconds (optional)
-
     // Return the enriched FLWs data along with pagination info
     return sendResponse(res, EResponseCode.SUCCESS, "FLW list", {
       currentPage: page,
-      totalItems: await USER.countDocuments({ role: 'FLW' }),
-      totalPages: Math.ceil(await USER.countDocuments({ role: 'FLW' }) / limit),
+      totalItems: await USER.countDocuments({
+        role: 'FLW',
+        $or: [
+          { isDeleted: { $ne: true } }, // Exclude isDeleted: true
+          { isDeleted: { $exists: false } } // Include users who don't have the isDeleted field
+        ]
+      }),
+      totalPages: Math.ceil(await USER.countDocuments({
+        role: 'FLW',
+        $or: [
+          { isDeleted: { $ne: true } },
+          { isDeleted: { $exists: false } }
+        ]
+      }) / limit),
       itemsPerPage: limit,
       data: enrichedFLWs
     });
@@ -691,16 +700,91 @@ exports.getAllFLWs = async (req, res) => {
 // Get all UCMOs
 exports.getAllUCMOs = async (req, res) => {
   try {
-    // Fetch users with role 'UCMO', including necessary fields
-    const ucmos = await USER.find({ role: 'UCMO' }, "firstName lastName role cnic phone status territory")
+    // Fetch users with role 'UCMO', excluding those with isDeleted: true
+    const ucmos = await USER.find({ 
+      role: 'UCMO', 
+      $or: [
+        { isDeleted: { $ne: true } }, // Exclude isDeleted: true
+        { isDeleted: { $exists: false } } // Also include users who don't have the isDeleted field (if any)
+      ]
+    }, "firstName lastName role cnic phone status territory")
       .populate('createdBy', 'firstName lastName cnic role')
-      .populate('updatedBy', 'firstName lastName cnic role')
+      .populate('updatedBy', 'firstName lastName cnic role');
 
     return sendResponse(res, EResponseCode.SUCCESS, "UCMO list", ucmos);
   } catch (err) {
     return errReturned(res, err);
   }
 };
+
+
+
+
+exports.getRoleStatusCount = async (req, res) => {
+  try {
+    // Count active and inactive UCMOs
+    const ucmoActiveCount = await USER.countDocuments({ role: 'UCMO', status: 'ACTIVE' });
+    const ucmoInactiveCount = await USER.countDocuments({ role: 'UCMO', status: 'INACTIVE' });
+
+    // Count active and inactive AICs
+    const aicActiveCount = await USER.countDocuments({ role: 'AIC', status: 'ACTIVE' });
+    const aicInactiveCount = await USER.countDocuments({ role: 'AIC', status: 'INACTIVE' });
+
+    // Count active and inactive FLWs
+    const flwActiveCount = await USER.countDocuments({ role: 'FLW', status: 'ACTIVE' });
+    const flwInactiveCount = await USER.countDocuments({ role: 'FLW', status: 'INACTIVE' });
+
+    // Prepare the response data
+    const result = {
+      UCMO: {
+        active: ucmoActiveCount,
+        inactive: ucmoInactiveCount
+      },
+      AIC: {
+        active: aicActiveCount,
+        inactive: aicInactiveCount
+      },
+      FLW: {
+        active: flwActiveCount,
+        inactive: flwInactiveCount
+      }
+    };
+
+    // Send the response with the counts
+    return sendResponse(res, EResponseCode.SUCCESS, "Role status counts", result);
+  } catch (err) {
+    return errReturned(res, err);
+  }
+};
+
+
+
+exports.toggleDeleteUser = async (req, res) => {
+  try {
+    const userId = req.params.id; // Get the user ID from the request params
+
+    console.log(userId);
+
+    // Find the user by ID and toggle the isDeleted field to true (as a boolean)
+    const user = await USER.findByIdAndUpdate(
+      userId,
+      { $set: { isDeleted: Boolean(true) } }, // Explicitly cast isDeleted to boolean
+      { new: true } // Return the updated user object
+    );
+
+    if (!user) {
+      return sendResponse(res, EResponseCode.NOT_FOUND, "User not found");
+    }
+
+    return sendResponse(res, EResponseCode.SUCCESS, "User soft deleted", user);
+  } catch (err) {
+    return errReturned(res, err);
+  }
+};
+
+
+
+
 
 // Get all Admins
 exports.getAllAdmins = async (req, res) => {
@@ -725,9 +809,15 @@ exports.getAllAICs1 = async (req, res) => {
     // Calculate the number of items to skip for pagination
     const skip = (page - 1) * limit;
 
-    // Fetch AICs from the database with pagination and populate relevant fields
+    // Fetch AICs from the database with pagination and populate relevant fields, excluding soft deleted users
     const aics = await USER.find(
-      { role: 'AIC' },
+      {
+        role: 'AIC',
+        $or: [
+          { isDeleted: { $ne: true } }, // Exclude isDeleted: true
+          { isDeleted: { $exists: false } } // Include users who don't have the isDeleted field
+        ]
+      },
       "firstName lastName email role cnic phone status createdBy updatedBy ucmo territory"
     )
       .skip(skip)
@@ -748,8 +838,14 @@ exports.getAllAICs1 = async (req, res) => {
       };
     });
 
-    // Get the total number of AICs for pagination info
-    const totalAICs = await USER.countDocuments({ role: 'AIC' });
+    // Get the total number of AICs for pagination info, excluding soft-deleted users
+    const totalAICs = await USER.countDocuments({
+      role: 'AIC',
+      $or: [
+        { isDeleted: { $ne: true } },
+        { isDeleted: { $exists: false } }
+      ]
+    });
 
     // Return the enriched AICs data along with pagination info
     return sendResponse(res, EResponseCode.SUCCESS, "AIC list", {
@@ -764,6 +860,7 @@ exports.getAllAICs1 = async (req, res) => {
     return errReturned(res, err);
   }
 };
+
 
 exports.getAllAICs = async (req, res) => {
   try {
@@ -1113,8 +1210,16 @@ const addUserWithRole = async (req, res, role) => {
     }
 
 
-    const cnicExist = await USER.findOne({ cnic });
+    const cnicExist = await USER.findOne({ 
+      cnic, 
+      $or: [
+        { isDeleted: null }, // Case where isDeleted is null
+        { isDeleted: false } // Case where isDeleted is false
+      ]
+    });
+    
     if (cnicExist) return errReturned(res, "CNIC Already Exists");
+    
 
     // Generate password from CNIC and phone
     // const generatedPassword = `${cnic.slice(0, 5)}${phone.slice(-3)}`;

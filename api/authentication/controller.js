@@ -20,16 +20,17 @@ exports.login = async (req, res) => {
       return errReturned(res, error.message);
     }
 
-    const { cnic, password, isMobile, versionNo } = value;
+
+    const { cnic, password, isMobile, appVersionNo,isDeleted } = value;
 
     // Find user by CNIC
     const user = await User.findOne({ cnic });
     if (!user) return errReturned(res, "Invalid login attempt.");
 
-    // Check if user is inactive
-    if (user.status === 'INACTIVE') {
+    if (user.status === 'INACTIVE' || user?.isDeleted) {
       return errReturned(res, "Your account is inactive and cannot log in.");
     }
+    
 
     // Ensure isMobile is either "true" or "false"
     if (isMobile !== "true" && isMobile !== "false") {
@@ -44,7 +45,7 @@ exports.login = async (req, res) => {
     }
 
     if (isMobile === "true") {
-      if (versionNo !== "1.0.6" && versionNo !== "1.0.5") {
+      if (appVersionNo !== process.env.APPVERSIONNO) {
         return errReturned(res, "Please update your mobile app.");
       }
     }

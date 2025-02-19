@@ -109,6 +109,8 @@ router.get('/aic/:id', controller.getFLWsByAIC);
 
 router.get('/active/:id', controller.activateUser);
 router.get('/inactive/:id', controller.deactivateUser);
+router.get('/delete/:id', controller.toggleDeleteUser);
+
 
   
 
