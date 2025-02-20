@@ -76,8 +76,8 @@ async function insertDataToCollection(collectionName, data) {
 
 exports.syncCollectedData = async (req, res) => {
     try {
-        const collectedDataArray = req.body;
-        const { data } = collectedDataArray;
+        const { data } = req.body;
+        // const { data } = collectedDataArray;
 
         // Destructure the arrays from the data object
         const { 
