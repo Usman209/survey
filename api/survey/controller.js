@@ -23,8 +23,6 @@ const path = require('path');
 // Create a cache instance
 const Queue = require('bull');
 
-// line add
-
 // Cache configuration
 const myCache = new NodeCache({ stdTTL: 900 }); // Cache for 15 minutes
 
@@ -56,19 +54,14 @@ async function insertDataToCollection(collectionName, data) {
         // Loop through each record and insert individually
         for (const record of data) {
             try {
-                // Get the current date and time
-                const currentDateTime = moment().toISOString();  // Formats as '2025-01-23T13:45:45.314Z'
-
-                // Add `isProcessed: false` and `addedAtServer` to each record
+                // Add `isProcessed: false` to each record
                 const processedRecord = {
                     ...record,
                     isProcessed: false,  // Add the "isProcessed" flag
-                    addedAtServer: currentDateTime  // Add the current date and time
                 };
 
                 // Insert each record individually using insertOne
                 const result = await collection.insertOne(processedRecord);
-                // for test 
 
             } catch (error) {
                 console.error(`Error inserting record into ${collectionName}:`, error);
@@ -83,16 +76,8 @@ async function insertDataToCollection(collectionName, data) {
 
 exports.syncCollectedData = async (req, res) => {
     try {
-        const collectedDataArray = req.body;
-        const { data,appVersionNo } = collectedDataArray;
-
-
-        if (appVersionNo !== process.env.APPVERSIONNO) {
-
-            return res.status(500).json({ 
-                message: 'Please update your mobile app as you are not using the latest version.' 
-            });
-          }
+        const { data } = req.body;
+        // const { data } = collectedDataArray;
 
         // Destructure the arrays from the data object
         const { 
@@ -116,8 +101,7 @@ exports.syncCollectedData = async (req, res) => {
             (!checkListNA || checkListNA.length === 0) &&
             (!checkListLock || checkListLock.length === 0) &&
             (!checkList00 || checkList00.length === 0) &&
-            (!fixedSite ||  fixedSite.length === 0 ) &&
-            (!Trsite ||  Trsite.length === 0 )   
+            !(fixedSite || Trsite)  // Validate that at least one of fixedSite or Trsite is provided
         ) {
             return res.status(400).json({ 
                 message: 'Data is empty. Please provide data to sync.' 
