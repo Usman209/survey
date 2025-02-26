@@ -16,6 +16,10 @@ router
   .get(controller.getAICSsByUC);
 
 
+  router.get('/count',controller.getRoleStatusCount)
+
+
+
 
   router
   .route("/flw/:uc/:siteType?")
