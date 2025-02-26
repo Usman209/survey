@@ -77,7 +77,9 @@ router.get('/flw-search', controller.searchFlw);
 
 router.get('/noteam', controller.getFLWsNotInAnyTeam);
 
-router.get('/team', controller.getActiveFLWsAssignedToTeams );
+router.get('/team', controller.getActiveFLWsAssignedToTeams);
+
+router.get('/count',controller.getRoleStatusCount)
 
 
 
