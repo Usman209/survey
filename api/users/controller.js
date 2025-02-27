@@ -722,17 +722,17 @@ exports.getAllUCMOs = async (req, res) => {
 
 exports.getRoleStatusCount = async (req, res) => {
   try {
-    // Count active and inactive UCMOs
-    const ucmoActiveCount = await USER.countDocuments({ role: 'UCMO', status: 'ACTIVE' });
-    const ucmoInactiveCount = await USER.countDocuments({ role: 'UCMO', status: 'INACTIVE' });
+    // Count active and inactive UCMOs where isDeleted is false
+    const ucmoActiveCount = await USER.countDocuments({ role: 'UCMO', status: 'ACTIVE', isDeleted: false });
+    const ucmoInactiveCount = await USER.countDocuments({ role: 'UCMO', status: 'INACTIVE', isDeleted: false });
 
-    // Count active and inactive AICs
-    const aicActiveCount = await USER.countDocuments({ role: 'AIC', status: 'ACTIVE' });
-    const aicInactiveCount = await USER.countDocuments({ role: 'AIC', status: 'INACTIVE' });
+    // Count active and inactive AICs where isDeleted is false
+    const aicActiveCount = await USER.countDocuments({ role: 'AIC', status: 'ACTIVE', isDeleted: false });
+    const aicInactiveCount = await USER.countDocuments({ role: 'AIC', status: 'INACTIVE', isDeleted: false });
 
-    // Count active and inactive FLWs
-    const flwActiveCount = await USER.countDocuments({ role: 'FLW', status: 'ACTIVE' });
-    const flwInactiveCount = await USER.countDocuments({ role: 'FLW', status: 'INACTIVE' });
+    // Count active and inactive FLWs where isDeleted is false
+    const flwActiveCount = await USER.countDocuments({ role: 'FLW', status: 'ACTIVE', isDeleted: false });
+    const flwInactiveCount = await USER.countDocuments({ role: 'FLW', status: 'INACTIVE', isDeleted: false });
 
     // Prepare the response data
     const result = {
@@ -756,6 +756,7 @@ exports.getRoleStatusCount = async (req, res) => {
     return errReturned(res, err);
   }
 };
+
 
 
 
