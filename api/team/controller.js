@@ -385,9 +385,8 @@ exports.updateTeam = async (req, res) => {
           return errReturned(res, "Invalid team name provided.");
         }
 
-        // Check if teamName already exists
         const existingTeam = await Team.findOne({ teamName: updateData.teamName });
-        if (existingTeam) {
+        if (existingTeam && existingTeam._id.toString() !== updateData.teamId.toString()) {
           return errReturned(res, "The team name already exists.");
         }
       } else {

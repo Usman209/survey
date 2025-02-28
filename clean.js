@@ -19,7 +19,7 @@ async function cleanUpCollections() {
         // Get collections that match the pattern
         const matchingCollections = collections.filter(col => {
             const matchesLock00 = /^checkList(Lock|00)_/.test(col.name);
-            const matchesOther = /^(checkListForm84|checkListNA|house|school|streetChildren)/.test(col.name);
+            const matchesOther = /^(checkListForm84|checkListNA|house|school|streetChildren|Trsite|fixedSite)/.test(col.name);
             return matchesLock00 || matchesOther;
         });
 
@@ -28,6 +28,8 @@ async function cleanUpCollections() {
         // Process each matching collection
         for (const collectionInfo of matchingCollections) {
             const collectionName = collectionInfo.name;
+            console.log('here ===========',collectionName);
+            
 
             const collection = db.collection(collectionName);
 
@@ -57,3 +59,5 @@ async function cleanUpCollections() {
 // });
 
 // console.log('Cron job for cleanup is scheduled to run daily at 8 PM');
+
+cleanUpCollections();
