@@ -368,6 +368,8 @@ exports.getTeamById = async (req, res) => {
 
 exports.updateTeam = async (req, res) => {
   try {
+    console.log('here=========');
+    
     const updateData = Object.fromEntries(
       Object.entries(req.body).filter(([_, value]) => value !== null) // Ensure no null values are included
     );
@@ -386,8 +388,8 @@ exports.updateTeam = async (req, res) => {
         }
 
         const existingTeam = await Team.findOne({ teamName: updateData.teamName });
-        if (existingTeam && existingTeam._id.toString() !== updateData.teamId.toString()) {
-          return errReturned(res, "The team name already exists.");
+        if (existingTeam && updateData.teamId && existingTeam._id.toString() !== updateData.teamId.toString()) {
+           return errReturned(res, "The team name already exists.");
         }
       } else {
         // If no teamName is provided, generate a unique team name based on 'territory.uc'
