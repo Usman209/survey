@@ -1050,7 +1050,7 @@ exports.searchUsers = async (req, res) => {
     }
 
     // Fetch users matching the query without pagination
-    const users = await USER.find(query, "firstName lastName email role cnic phone status createdBy updatedBy aic ucmo siteType")
+    const users = await USER.find(query, "firstName lastName email role cnic phone status createdBy updatedBy aic ucmo siteType territory")
       .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role')
       .populate('aic', 'firstName lastName cnic')
