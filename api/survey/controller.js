@@ -79,9 +79,9 @@ exports.syncCollectedData = async (req, res) => {
         const { data,meta } = req.body;
         // const { data } = collectedDataArray;
 
-        if (meta?.appVersionNo !== process.env.APPVERSIONNO || appVersionNo !== '1.0.7') {
-            return errReturned(res, "Please update your mobile app.");
-          }
+        // if (meta?.appVersionNo !== process.env.APPVERSIONNO || meta?.appVersionNo !== '1.0.7') {
+        //     return errReturned(res, "Please update your mobile app.");
+        //   }
 
         // Destructure the arrays from the data object
         const { 
