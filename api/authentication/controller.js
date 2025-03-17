@@ -45,9 +45,9 @@ exports.login = async (req, res) => {
     }
 
     if (isMobile === "true") {
-      if (versionNo !== process.env.APPVERSIONNO) {
+      if (versionNo < process.env.APPVERSIONNO) {
         return errReturned(res, "Please update your mobile app.");
-      }
+    }    
     }
 
     // Validate the password
