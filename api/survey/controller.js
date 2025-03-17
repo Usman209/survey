@@ -76,12 +76,12 @@ async function insertDataToCollection(collectionName, data) {
 
 exports.syncCollectedData = async (req, res) => {
     try {
-        const { data } = req.body;
+        const { data,meta } = req.body;
         // const { data } = collectedDataArray;
 
-        // if (versionNo !== process.env.APPVERSIONNO) {
-        //     return errReturned(res, "Please update your mobile app.");
-        //   }
+        if (meta?.appVersionNo !== process.env.APPVERSIONNO || appVersionNo !== '1.0.7') {
+            return errReturned(res, "Please update your mobile app.");
+          }
 
         // Destructure the arrays from the data object
         const { 
