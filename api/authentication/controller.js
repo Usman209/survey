@@ -10,6 +10,7 @@ const {
   userRegisterSchemaValidator,
   userLoginSchemaValidator,
 } = require("../../lib/utils/sanitization");
+const { checkAppVersion } = require("../../lib/utils/versionCheck");
 
 require("dotenv").config();
 
@@ -45,8 +46,12 @@ exports.login = async (req, res) => {
     }
 
     if (isMobile === "true") {
+    
 
-    if (versionNo !== process.env.APPVERSIONNO || versionNo !== '1.0.7') {
+   const isVersionValid = checkAppVersion(versionNo);
+
+
+if (!isVersionValid) {
             return errReturned(res, "Please update your mobile app.");
           }  
     }

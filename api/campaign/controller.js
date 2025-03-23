@@ -3,6 +3,10 @@ const Campaign = require('../../lib/schema/campaign.schema');
 const moment = require('moment');
 // Import the Redis client
 const redisClient = require("../../config/redis");
+const cron = require('node-cron');
+
+
+
 
 
 exports.createCampaign = async (req, res) => {
@@ -215,6 +219,7 @@ exports.deleteCampaign = async (req, res) => {
 };
 
 
+
 exports.activateCampaign = async (req, res) => {
   try {
     // Check if there is already an active campaign
@@ -231,7 +236,7 @@ exports.activateCampaign = async (req, res) => {
       // If both the start date and the end date of the active campaign have passed
       if (activeCampaignStartDate < currentDate && activeCampaignEndDate < currentDate) {
         return sendResponse(res, 200, `The active campaign "${activeCampaign.campaignName}" has passed its start and end date. Please deactivate it before activating a new campaign.`);
-      } 
+      }
 
       // If the active campaign's start date is today or in the past and the end date is still in the future (current campaign)
       if (activeCampaignStartDate <= currentDate && activeCampaignEndDate >= currentDate) {
@@ -254,8 +259,11 @@ exports.activateCampaign = async (req, res) => {
     // Activate the campaign (if the start date is today or in the future, and the end date is in the future)
     campaign.status = 'ACTIVE';
     await campaign.save();
-    await redisClient.del('all_campaigns');
 
+    // Add the activated campaign to cache with no expiry
+    await redisClient.set('active_campaign', JSON.stringify(campaign));
+
+  
     // Check if the campaign is a future campaign or a current campaign
     if (campaignStartDate > currentDate) {
       return sendResponse(res, 200, `Future campaign "${campaign.campaignName}" activated successfully.`, campaign);
@@ -269,20 +277,34 @@ exports.activateCampaign = async (req, res) => {
 };
 
 
-
-
-
-exports.deactivateCampaign = async (req, res) => {
+// Cron job to run at 3 AM and 4 AM every day
+cron.schedule('0 3,4 * * *', async () => {
   try {
-    const campaign = await Campaign.findById(req.params.id);
-    if (!campaign) return errReturned(res, "Campaign not found.");
+    // Get the current date
+    const currentDate = new Date();
 
-    campaign.status = 'INACTIVE';
-    await campaign.save();
-    await redisClient.del('all_campaigns');
+    // Find all active campaigns that have passed their end date
+    const expiredCampaigns = await Campaign.find({
+      status: 'ACTIVE',
+      endDate: { $lt: currentDate }
+    });
 
-    return sendResponse(res, 200, "Campaign deactivated successfully.", campaign);
+    // Deactivate each expired campaign and remove from cache
+    for (let campaign of expiredCampaigns) {
+      // Deactivate the campaign
+      campaign.status = 'INACTIVE';
+      await campaign.save();
+
+      // Remove the campaign from the active campaign cache
+      await redisClient.del('active_campaign');
+
+      // Optionally, remove from "all_campaigns" cache
+    }
+
+    console.log(`Expired campaigns deactivated successfully at ${currentDate}`);
   } catch (error) {
-    return errReturned(res, error.message);
+    console.error('Error in cron job:', error.message);
   }
-};
+});
+
+

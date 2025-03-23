@@ -17,11 +17,14 @@ const cron = require('cron');
 const bullMaster = require('bull-master');
 const fs = require('fs');
 const path = require('path');
+const redisClient = require("../../config/redis");
+
 
 
 
 // Create a cache instance
 const Queue = require('bull');
+const { checkAppVersion } = require('../../lib/utils/versionCheck');
 
 // Cache configuration
 const myCache = new NodeCache({ stdTTL: 900 }); // Cache for 15 minutes
@@ -77,13 +80,25 @@ async function insertDataToCollection(collectionName, data) {
 exports.syncCollectedData = async (req, res) => {
     try {
         const { data,meta } = req.body;
-        // const { data } = collectedDataArray;
 
-        // if (meta?.appVersionNo !== process.env.APPVERSIONNO || meta?.appVersionNo !== '1.0.7') {
-        //     return errReturned(res, "Please update your mobile app.");
-        //   }
+        const isVersionValid = checkAppVersion(meta?.appVersionNo);
 
-        // Destructure the arrays from the data object
+        if (!isVersionValid) {
+            return errReturned(res, "Please update your mobile app.");
+        }
+        // const cachedCampaign = await redisClient.get('active_campaign');
+
+        // if (!cachedCampaign) {
+        //     return errReturned(res, "No active campaign found in cache.");
+        // }
+
+        // const parsedCampaign = JSON.parse(cachedCampaign);
+
+        // // Check if the campaignId in the request matches the cached campaignId
+        // if (campaignId !== parsedCampaign._id.toString()) {
+        //     return errReturned(res, "The provided campaignId does not match the active campaign.");
+        // }
+
         const { 
             houses, 
             schools, 
