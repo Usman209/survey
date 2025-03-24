@@ -90,7 +90,7 @@ exports.syncCollectedData = async (req, res) => {
         const cachedCampaign = await redisClient.get('active_campaign');
 
         if (!cachedCampaign) {
-            return errReturned(res, "No active campaign found in cache.");
+            return errReturned(res, "No active campaign. Please try again when the campaign begins.");
         }
 
         // const parsedCampaign = JSON.parse(cachedCampaign);
