@@ -106,6 +106,7 @@ exports.createAttendance = async (req, res) => {
           remarks: req.body.remarks || "", // If there are any remarks provided
           slug: req.body.slug || "", // If there is any slug provided
           extraInfo: req.body.extraInfo || {},  // Any other extra information
+          isProcessed: false,
       });
 
       // 6. Save the attendance data

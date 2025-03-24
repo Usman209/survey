@@ -84,20 +84,32 @@ exports.syncCollectedData = async (req, res) => {
         const isVersionValid = checkAppVersion(meta?.appVersionNo);
 
         if (!isVersionValid) {
-            return errReturned(res, "Please update your mobile app.");
+            return errReturned(res, "Please update your mobile app as you're currently using an outdated version.");
         }
-        // const cachedCampaign = await redisClient.get('active_campaign');
+       
+        const cachedCampaign = await redisClient.get('active_campaign');
 
-        // if (!cachedCampaign) {
-        //     return errReturned(res, "No active campaign found in cache.");
-        // }
+        if (!cachedCampaign) {
+            return errReturned(res, "No active campaign found in cache.");
+        }
 
         // const parsedCampaign = JSON.parse(cachedCampaign);
+        // console.log(data?.houses[0]?.campaignId);
+        // console.log('code',parsedCampaign?._id);
 
-        // // Check if the campaignId in the request matches the cached campaignId
-        // if (campaignId !== parsedCampaign._id.toString()) {
-        //     return errReturned(res, "The provided campaignId does not match the active campaign.");
-        // }
+        
+
+
+        // Check if parsedCampaign._id exists and campaignId doesn't match
+// if (parsedCampaign?._id){
+//     if (data?.campaignId !== (parsedCampaign._id ? parsedCampaign._id.toString() : null)) {
+//         return errReturned(res, "The provided campaignId does not match the active campaign.");
+//     }
+// }
+
+
+        // Check if the campaignId in the request matches the cached campaignId
+      
 
         const { 
             houses, 

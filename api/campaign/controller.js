@@ -126,6 +126,24 @@ exports.getAllCampaigns = async (req, res) => {
     });
 
 
+    let cachedCampaign = await redisClient.get('active_campaign');
+
+    if (!cachedCampaign) {
+      // If there's no active campaign in the cache, find the active campaign from the database
+      const activeCampaign = formattedCampaigns.find(campaign => campaign.isActive);
+
+      if (activeCampaign) {
+        // Cache the active campaign
+        await redisClient.set('active_campaign', JSON.stringify(activeCampaign));
+        // console.log('Active campaign cached:', activeCampaign);
+      }
+    } else {
+      // If it's cached, use it as it is
+      cachedCampaign = JSON.parse(cachedCampaign);
+      // console.log('Active campaign already in cache:', cachedCampaign);
+    }
+
+
     return sendResponse(res, 200, "All campaigns fetched successfully.", formattedCampaigns);
   } catch (error) {
     return errReturned(res, error.message);
@@ -219,7 +237,6 @@ exports.deleteCampaign = async (req, res) => {
 };
 
 
-
 exports.activateCampaign = async (req, res) => {
   try {
     // Check if there is already an active campaign
@@ -256,9 +273,15 @@ exports.activateCampaign = async (req, res) => {
       return errReturned(res, "You cannot activate a campaign that has already ended.");
     }
 
+
+    await redisClient.del('active_campaign');
+    console.log('Previous active campaign removed from cache.');
+
     // Activate the campaign (if the start date is today or in the future, and the end date is in the future)
     campaign.status = 'ACTIVE';
     await campaign.save();
+
+
 
     // Add the activated campaign to cache with no expiry
     await redisClient.set('active_campaign', JSON.stringify(campaign));
@@ -275,6 +298,27 @@ exports.activateCampaign = async (req, res) => {
     return errReturned(res, error.message);
   }
 };
+
+exports.deactivateCampaign = async (req, res) => {
+  try {
+    const campaign = await Campaign.findById(req.params.id);
+    if (!campaign) return errReturned(res, "Campaign not found.");
+
+    campaign.status = 'INACTIVE';
+    await campaign.save();
+
+    // Remove 'all_campaigns' cache
+    await redisClient.del('all_campaigns');
+
+    // Remove the active campaign from the cache
+    await redisClient.del('active_campaign');
+
+    return sendResponse(res, 200, "Campaign deactivated successfully.", campaign);
+  } catch (error) {
+    return errReturned(res, error.message);
+  }
+};
+
 
 
 // Cron job to run at 3 AM and 4 AM every day
