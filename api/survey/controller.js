@@ -93,7 +93,7 @@ exports.syncCollectedData = async (req, res) => {
             return errReturned(res, "No active campaign. Please try again when the campaign begins.");
         }
 
-        // const parsedCampaign = JSON.parse(cachedCampaign);
+        const parsedCampaign = JSON.parse(cachedCampaign);
         // console.log(data?.houses[0]?.campaignId);
         // console.log('code',parsedCampaign?._id);
 
@@ -101,11 +101,11 @@ exports.syncCollectedData = async (req, res) => {
 
 
         // Check if parsedCampaign._id exists and campaignId doesn't match
-// if (parsedCampaign?._id){
-//     if (data?.campaignId !== (parsedCampaign._id ? parsedCampaign._id.toString() : null)) {
-//         return errReturned(res, "The provided campaignId does not match the active campaign.");
-//     }
-// }
+if (parsedCampaign?._id){
+    if (data?.campaignId !== (parsedCampaign._id ? parsedCampaign._id.toString() : null)) {
+        return errReturned(res, "The provided campaignId does not match the active campaign.");
+    }
+}
 
 
         // Check if the campaignId in the request matches the cached campaignId
