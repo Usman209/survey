@@ -242,13 +242,18 @@ exports.activateCampaign = async (req, res) => {
     // Check if there is already an active campaign
     const activeCampaign = await Campaign.findOne({ status: 'ACTIVE' });
 
-    // Get the current date
+    // Get the current date and reset time to midnight
     const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0); // Set time to midnight to avoid time mismatch
 
     // If an active campaign exists
     if (activeCampaign) {
       const activeCampaignStartDate = new Date(activeCampaign.startDate);
       const activeCampaignEndDate = new Date(activeCampaign.endDate);
+
+      // Reset the time for active campaign dates as well
+      activeCampaignStartDate.setHours(0, 0, 0, 0);
+      activeCampaignEndDate.setHours(0, 0, 0, 0);
 
       // If both the start date and the end date of the active campaign have passed
       if (activeCampaignStartDate < currentDate && activeCampaignEndDate < currentDate) {
@@ -268,11 +273,15 @@ exports.activateCampaign = async (req, res) => {
     const campaignStartDate = new Date(campaign.startDate);
     const campaignEndDate = new Date(campaign.endDate);
 
-    if (campaignEndDate <= currentDate) {
+    // Reset the time for the campaign dates as well
+    campaignStartDate.setHours(0, 0, 0, 0);
+    campaignEndDate.setHours(0, 0, 0, 0);
+
+    // Check if the campaign's end date is in the past
+    if (campaignEndDate < currentDate) {
       // If the campaign's end date is in the past, return an error (can't activate finished campaigns)
       return errReturned(res, "You cannot activate a campaign that has already ended.");
     }
-
 
     await redisClient.del('active_campaign');
     console.log('Previous active campaign removed from cache.');
@@ -281,12 +290,9 @@ exports.activateCampaign = async (req, res) => {
     campaign.status = 'ACTIVE';
     await campaign.save();
 
-
-
     // Add the activated campaign to cache with no expiry
     await redisClient.set('active_campaign', JSON.stringify(campaign));
 
-  
     // Check if the campaign is a future campaign or a current campaign
     if (campaignStartDate > currentDate) {
       return sendResponse(res, 200, `Future campaign "${campaign.campaignName}" activated successfully.`, campaign);
@@ -298,6 +304,7 @@ exports.activateCampaign = async (req, res) => {
     return errReturned(res, error.message);
   }
 };
+
 
 exports.deactivateCampaign = async (req, res) => {
   try {
@@ -321,16 +328,17 @@ exports.deactivateCampaign = async (req, res) => {
 
 
 
-// Cron job to run at 3 AM and 4 AM every day
+
 cron.schedule('0 3,4 * * *', async () => {
   try {
-    // Get the current date
+    // Get the current date and reset the time to midnight
     const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0); // Set time to midnight to avoid time mismatch
 
     // Find all active campaigns that have passed their end date
     const expiredCampaigns = await Campaign.find({
       status: 'ACTIVE',
-      endDate: { $lt: currentDate }
+      endDate: { $lt: currentDate }  // Compare end date to current date at midnight
     });
 
     // Deactivate each expired campaign and remove from cache
@@ -342,7 +350,7 @@ cron.schedule('0 3,4 * * *', async () => {
       // Remove the campaign from the active campaign cache
       await redisClient.del('active_campaign');
 
-      // Optionally, remove from "all_campaigns" cache
+      // Optionally, remove from "all_campaigns" cache or any other cache as needed
     }
 
     console.log(`Expired campaigns deactivated successfully at ${currentDate}`);
