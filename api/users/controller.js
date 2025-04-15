@@ -1044,8 +1044,13 @@ exports.searchUsers = async (req, res) => {
   try {
     const { role, firstName, lastName, cnic, email, phone, status } = req.query;
 
-    // Build the query object
-    const query = {};
+    // Build the query object with default filter to exclude deleted users
+    const query = {
+      $or: [
+        { isDeleted: { $ne: true } },
+        { isDeleted: { $exists: false } }
+      ]
+    };
 
     // Add conditions based on provided query parameters
     if (role) {
@@ -1071,11 +1076,14 @@ exports.searchUsers = async (req, res) => {
     }
 
     // Fetch users matching the query without pagination
-    const users = await USER.find(query, "firstName lastName email role cnic phone status createdBy updatedBy aic ucmo siteType territory")
+    const users = await USER.find(
+      query,
+      "firstName lastName email role cnic phone status createdBy updatedBy aic ucmo siteType territory"
+    )
       .populate('createdBy', 'firstName lastName cnic role')
       .populate('updatedBy', 'firstName lastName cnic role')
       .populate('aic', 'firstName lastName cnic')
-      .populate('ucmo', 'firstName lastName cnic'); // Populate UCMO details (only if relevant)
+      .populate('ucmo', 'firstName lastName cnic');
 
     // Enrich users with teams' data and additional role-specific information
     const enrichedUsers = await Promise.all(users.map(async (user) => {
@@ -1092,10 +1100,10 @@ exports.searchUsers = async (req, res) => {
           } : null,
         };
 
-        // Enrich with team details (if user is AIC)
         const matchingTeams = await Team.find({ 'flws': user._id })
           .populate('aic', 'firstName lastName cnic')
           .populate('ucmo', 'firstName lastName cnic');
+
         const teams = matchingTeams.map(team => ({
           teamName: team.teamName,
           ucmoDetails: team.ucmo ? {
@@ -1116,8 +1124,8 @@ exports.searchUsers = async (req, res) => {
       // Handle users with 'FLW' role
       if (userDetails.role === 'FLW') {
         const matchingTeams = await Team.find({ 'flws': user._id })
-          .populate('aic', 'firstName lastName cnic siteType')  // Include siteType for AIC
-          .populate('ucmo', 'firstName lastName cnic siteType'); // Include siteType for UCMO
+          .populate('aic', 'firstName lastName cnic siteType')
+          .populate('ucmo', 'firstName lastName cnic siteType');
 
         const teams = matchingTeams.map(team => ({
           teamName: team.teamName,
@@ -1125,32 +1133,31 @@ exports.searchUsers = async (req, res) => {
             firstName: team.ucmo.firstName,
             lastName: team.ucmo.lastName,
             cnic: team.ucmo.cnic,
-            siteType: team.ucmo.siteType // Include siteType for UCMO
+            siteType: team.ucmo.siteType
           } : null,
           aicDetails: team.aic ? {
             firstName: team.aic.firstName,
             lastName: team.aic.lastName,
             cnic: team.aic.cnic,
-            siteType: team.aic.siteType // Include siteType for AIC
+            siteType: team.aic.siteType
           } : null,
         }));
 
         userDetails = { ...userDetails, teams };
       }
 
-      // If the user role is 'ADMIN' or 'UCMO', just return the user details without teams or additional role-based information
+      // 'ADMIN' and 'UCMO' users don't get teams or ucmoDetails
       if (userDetails.role === 'ADMIN' || userDetails.role === 'UCMO') {
         userDetails = {
           ...userDetails,
-          teams: [],  // No teams data for 'ADMIN' or 'UCMO'
-          ucmoDetails: null,  // No UCMO details for 'ADMIN' or 'UCMO'
+          teams: [],
+          ucmoDetails: null,
         };
       }
 
       return userDetails;
     }));
 
-    // Return the enriched user data without pagination info
     return sendResponse(res, EResponseCode.SUCCESS, "User search results", enrichedUsers);
   } catch (err) {
     console.error("Error fetching users:", err);
