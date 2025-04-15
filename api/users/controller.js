@@ -785,6 +785,27 @@ exports.toggleDeleteUser = async (req, res) => {
 
 
 
+exports.deleteUserPermanently = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    console.log("Deleting user permanently:", userId);
+
+    // Permanently delete the user from the database
+    const user = await USER.findByIdAndDelete(userId);
+
+    if (!user) {
+      return sendResponse(res, EResponseCode.NOT_FOUND, "User not found");
+    }
+
+    return sendResponse(res, EResponseCode.SUCCESS, "User  deleted", user);
+  } catch (err) {
+    return errReturned(res, err);
+  }
+};
+
+
+
 
 
 // Get all Admins
