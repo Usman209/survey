@@ -25,10 +25,11 @@ exports.login = async (req, res) => {
     const { cnic, password, isMobile, versionNo,isDeleted } = value;
 
     // Find user by CNIC
-    const user = await User.findOne({ cnic });
+    const user = await User.findOne({ cnic, isDeleted: false }).sort({ createdAt: -1 });
+
     if (!user) return errReturned(res, "Invalid login attempt.");
 
-    if (user.status === 'INACTIVE' || user?.isDeleted) {
+    if (user.status === 'INACTIVE') {
       return errReturned(res, "Your account is inactive/removed.");
     }
     
